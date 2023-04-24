@@ -40,17 +40,21 @@ var config = Config()
 private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureFufu,
     ::configureBullshit,
+    ::configureMoney
 )
 
 fun configure(fun_: (Bot) -> Unit) {
     configureFuns.add(fun_)
 }
 
-object profiles: HashMap<Long, UserProfile>() {
+@Serializable
+class Profiles: HashMap<Long, UserProfile>() {
     override fun get(key: Long): UserProfile {
         return super.get(key) ?: UserProfile(key).also { put(key, it) }
     }
 }
+
+var profiles = Profiles()
 
 val scriptEngine = ScriptEngineManager().getEngineByName("js")
 
@@ -152,6 +156,7 @@ inline fun <reified T> saveJson(file: String, data: T) {
 
 suspend fun main() {
     config = loadJson("config.json") { Config() }
+    profiles = loadJson("profiles.json") { Profiles() }
     config.accounts.forEach {
         val bot = newBot(it.account, it.password, it.log2Console)
         try {

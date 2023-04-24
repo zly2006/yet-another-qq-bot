@@ -1,4 +1,5 @@
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.event.events.GroupMessageEvent
@@ -8,6 +9,7 @@ import kotlin.random.Random
 
 private val numberRegex = Regex("[\\d,，]+")
 
+@Serializable
 private data class Data(
     val famous: List<String>,
     val bosh: List<String>,
@@ -21,9 +23,16 @@ fun configureBullshit(bot: Bot) {
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
             if (message.content.contains("狗屁不通")) {
+                var i = 0
+                fun nextBosh(): String {
+                    val b = data.bosh[i]
+                    i = (i + 1) % data.bosh.size
+                    return b
+                }
                 val title =
                     message.content.substringAfter("写一篇")
                         .substringAfter("关于")
+                        .substringAfter("字")
                         .substringBefore("书")
                         .substringBefore("信")
                         .substringBefore("的文章")
@@ -32,11 +41,11 @@ fun configureBullshit(bot: Bot) {
                 if (title.isEmpty()) {
                     group.sendMessage("无法识别标题")
                 } else {
-                    val sb = StringBuilder()
+                    val sb = StringBuilder("    ")
                     while (sb.length < length) {
                         val b = Random.nextInt(0, 100)
                         if (b < 5) {
-                            sb.append("。\n    ")
+                            sb.append(".\n    ")
                         }
                         else if (b < 20) {
                             sb.append(
@@ -46,7 +55,7 @@ fun configureBullshit(bot: Bot) {
                             )
                         }
                         else {
-                            sb.append(data.bosh.random())
+                            sb.append(nextBosh())
                         }
                     }
                     group.sendMessage("x\n$sb".replace("x", title))
