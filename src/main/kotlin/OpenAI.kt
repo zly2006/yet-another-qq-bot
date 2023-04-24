@@ -33,6 +33,10 @@ fun configureChatGPT(bot: Bot) {
                 if (map[sender.id] == null) {
                     map[sender.id] = Context(sender.id, mutableListOf(initialPrompt))
                 }
+                if (map[sender.id]!!.lockedTimestamp + 1000 * 300 > System.currentTimeMillis()) {
+                    group.sendMessage("休息一下再来提问吧！")
+                    return@subscribeAlways
+                }
                 map[sender.id]!!.lastRequest = System.currentTimeMillis()
                 if (!map[sender.id]!!.responded) {
                     group.sendMessage("请等待AI回复")
@@ -45,9 +49,6 @@ fun configureChatGPT(bot: Bot) {
                     }
                     map[sender.id]!!.messages.clear()
                     return@subscribeAlways
-                }
-                if (map[sender.id]!!.lockedTimestamp + 1000 * 300 < System.currentTimeMillis()) {
-                    group.sendMessage("休息一下再来提问吧！")
                 }
                 map[sender.id]!!.responded = false
                 GlobalScope.launch {
