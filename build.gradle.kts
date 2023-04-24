@@ -18,6 +18,8 @@ repositories {
 dependencies {
     api("net.mamoe", "mirai-core-api", miraiVersion)
     runtimeOnly("net.mamoe", "mirai-core", miraiVersion)
+    //implementation("io.github.jetkai:openai:1.1.2")
+    implementation(files("lib/openai.jar"))
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("org.openjdk.nashorn", "nashorn-core", "15.3")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.0")

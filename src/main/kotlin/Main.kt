@@ -26,6 +26,7 @@ class Config(
     val admins: MutableList<Long> = mutableListOf(1284588550L),
     val testGroup: MutableList<Long> = mutableListOf(),
     val enabledGroup: MutableList<Long> = mutableListOf(),
+    val openaiApiKey: String = "",
 ) {
     @Serializable
     class Account(
@@ -40,7 +41,8 @@ var config = Config()
 private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureFufu,
     ::configureBullshit,
-    ::configureMoney
+    ::configureMoney,
+    ::configureChatGPT
 )
 
 fun configure(fun_: (Bot) -> Unit) {

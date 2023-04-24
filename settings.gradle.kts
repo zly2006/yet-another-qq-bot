@@ -1,3 +1,3 @@
 
-rootProject.name = "forward-bot"
+rootProject.name = "yab4j"
 
