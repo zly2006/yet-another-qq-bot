@@ -42,7 +42,9 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureFufu,
     ::configureBullshit,
     ::configureMoney,
-    ::configureChatGPT
+    ::configureChatGPT,
+    ::configureGroupManage,
+    ::configureManageAi
 )
 
 fun configure(fun_: (Bot) -> Unit) {

@@ -24,11 +24,14 @@ private fun configureCheckIn(bot: Bot) {
                     } else {
                         sender.profile.keepCheckInDuration = 1
                     }
-                    val randomMax = max(sender.profile.keepCheckInDuration * 5, 10).toInt()
+                    val randomMax = 100 + max(sender.profile.keepCheckInDuration * 5, 10).toInt()
                     val money = 100 + (0..randomMax).random()
                     sender.profile.money += money
                     group.sendMessage("签到成功，获得 $money 金币，连续签到 ${sender.profile.keepCheckInDuration} 天")
                 }
+            }
+            if (message.content == "#签到信息") {
+                group.sendMessage("你已经连续签到 ${sender.profile.keepCheckInDuration} 天，接下来随机签到可以随机获得 100 至 ${100 + max(sender.profile.keepCheckInDuration * 5, 10)} 金币}")
             }
         }
     }
@@ -46,7 +49,8 @@ fun resolveAmount(message: MessageChain) = moneyRegex.findAll(message.content.su
 private fun configureTransform(bot: Bot) {
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
-            if (message.content.startsWith("#转账")) {
+            val content = message.content.trim()
+            if (content.startsWith("#转账")) {
                 val target = resolveTarget(message, bot)
                 val amount = (resolveAmount(message) * 100).toInt() / 100.0
                 if (target == null) {
@@ -61,10 +65,21 @@ private fun configureTransform(bot: Bot) {
                     group.sendMessage("余额不足")
                 }
             }
+            if (content == "#我的余额") {
+                group.sendMessage("你的余额为 ${sender.profile.money} 金币")
+            }
+            if (content == "#财富榜") {
+                val sorted = profiles.values.sortedByDescending { it.money }
+                val top = sorted.take(10)
+                val rank = sorted.indexOf(sender.profile) + 1
+                group.sendMessage("你的排名为 $rank")
+                group.sendMessage("财富榜：\n" + top.joinToString("\n") { "${it.id} ${it.money}" })
+            }
         }
     }
 }
 
 fun configureMoney(bot: Bot) {
     configureCheckIn(bot)
+    configureTransform(bot)
 }
