@@ -9,7 +9,8 @@ class UserProfile(
     var lastAppearedTime: Long = 0,
     var lastCheckInDate: Long = 0,
     var keepCheckInDuration: Long = 0,
-    var money: Double = 0.0
+    var money: Double = 0.0,
+    val items: MutableMap<String, Int> = mutableMapOf(),
 ) {
 }
 

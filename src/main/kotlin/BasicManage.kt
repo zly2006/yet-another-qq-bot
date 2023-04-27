@@ -15,10 +15,17 @@ fun configureGroupManage(bot: Bot) {
                     group.sendMessage("已禁用")
                 }
                 "!test" -> {
-                    config.testGroup.add(group.id)
-                    group.sendMessage("开启为测试群组")
+                    if (group.id !in config.testGroup) {
+                        config.testGroup.add(group.id)
+                        group.sendMessage("开启为测试群组")
+                    }
+                    else {
+                        config.testGroup.remove(group.id)
+                        group.sendMessage("不再启用测试功能")
+                    }
                 }
             }
+            saveJson("config.json", config)
         }
     }
 }

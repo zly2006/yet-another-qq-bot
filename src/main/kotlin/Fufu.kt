@@ -5,6 +5,7 @@ import net.mamoe.mirai.message.data.content
 import java.io.File
 
 fun configureFufu(bot: Bot) {
+    helpMessages.add("fufu/capoo - 随机发送fufu或capoo表情包")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
             when (message.content) {

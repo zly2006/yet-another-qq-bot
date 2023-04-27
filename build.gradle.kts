@@ -19,6 +19,7 @@ dependencies {
     api("net.mamoe", "mirai-core-api", miraiVersion)
     runtimeOnly("net.mamoe", "mirai-core", miraiVersion)
     //implementation("io.github.jetkai:openai:1.1.2")
+    implementation("com.sksamuel.scrimage:scrimage-core:4.0.34")
     implementation(files("lib/openai.jar"))
     implementation("com.squareup.okhttp3:okhttp:4.10.0")
     implementation("org.openjdk.nashorn", "nashorn-core", "15.3")

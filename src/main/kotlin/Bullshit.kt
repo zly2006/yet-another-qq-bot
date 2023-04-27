@@ -20,6 +20,7 @@ private data class Data(
 private val data = JSON.decodeFromString<Data>(File("bullshit.data.json").readText())
 
 fun configureBullshit(bot: Bot) {
+    helpMessages.add("用狗屁不通文章生成器写一篇[100字]<主题>")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
             if (message.content.contains("狗屁不通")) {
@@ -33,8 +34,6 @@ fun configureBullshit(bot: Bot) {
                     message.content.substringAfter("写一篇")
                         .substringAfter("关于")
                         .substringAfter("字")
-                        .substringBefore("书")
-                        .substringBefore("信")
                         .substringBefore("的文章")
                 val length = numberRegex.find(message.content.substringBefore('字'))
                     ?.value?.toIntOrNull() ?: 1000

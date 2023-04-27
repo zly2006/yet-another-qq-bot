@@ -1,5 +1,7 @@
 
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -7,6 +9,8 @@ import kotlinx.serialization.json.Json
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.auth.BotAuthorization
+import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.DirectoryLogger
 import net.mamoe.mirai.utils.MiraiLogger
@@ -38,29 +42,25 @@ class Config(
 
 var config = Config()
 
+val ai = ChatGPT(File("data/prompt.txt").readText())
+
 private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureFufu,
     ::configureBullshit,
     ::configureMoney,
-    ::configureChatGPT,
+    ai::configureChatGPT,
     ::configureGroupManage,
-    ::configureManageAi
+    ai::configureManageAi
 )
 
 fun configure(fun_: (Bot) -> Unit) {
     configureFuns.add(fun_)
 }
 
-@Serializable
-class Profiles: HashMap<Long, UserProfile>() {
-    override fun get(key: Long): UserProfile {
-        return super.get(key) ?: UserProfile(key).also { put(key, it) }
-    }
-}
-
-var profiles = Profiles()
+var profiles = mutableMapOf<Long, UserProfile>()
 
 val scriptEngine = ScriptEngineManager().getEngineByName("js")
+val helpMessages = mutableListOf<String>()
 
 fun newBot(account: Long, password: String, log2Console: Boolean = true): Bot {
     return BotFactory.newBot(
@@ -160,15 +160,35 @@ inline fun <reified T> saveJson(file: String, data: T) {
 
 suspend fun main() {
     config = loadJson("config.json") { Config() }
-    profiles = loadJson("profiles.json") { Profiles() }
+    profiles = loadJson("profiles.json") { mutableMapOf() }
     config.accounts.forEach {
         val bot = newBot(it.account, it.password, it.log2Console)
         try {
             bot.login()
             configureFuns.forEach { it(bot) }
+            bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+                if (group.enabled) {
+                    if (message.content.startsWith("#")) {
+                        sender.profile.lastAppearedTime = System.currentTimeMillis()
+                        sender.profile.lastAppearedGroup = group.id
+                    }
+                    if (message.content == "#help") {
+                        group.sendMessage(helpMessages.joinToString("\n"))
+                    }
+                }
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            bot.logger.error(e)
         }
     }
+    GlobalScope.launch {
+        while (true) {
+            Thread.sleep(300 * 1000)
+            saveJson("profiles.json", profiles)
+        }
+    }
+    Runtime.getRuntime().addShutdownHook(Thread {
+        saveJson("profiles.json", profiles)
+    })
     awaitCancellation()
 }
