@@ -11,7 +11,19 @@ class UserProfile(
     var keepCheckInDuration: Long = 0,
     var money: Double = 0.0,
     val items: MutableMap<String, Int> = mutableMapOf(),
+    val punishments: MutableList<Punishment> = mutableListOf(),
 ) {
+    @Serializable
+    class Punishment(
+        val time: Long,
+        val reason: String,
+        val detail: String,
+        val source: String,
+        val duration: Long = -1,
+        val cancelTime: Long = 0,
+        val cancelReason: String = "",
+        val cancelSource: String = "",
+    )
 }
 
 fun UserProfile.takeMoney(money: Double): Boolean {

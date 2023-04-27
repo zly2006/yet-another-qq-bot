@@ -25,3 +25,12 @@ fun UserProfile.addItem(type: String) {
 fun profile(id: Long): UserProfile {
     return profiles[id] ?: UserProfile(id).apply { profiles[id] = this }
 }
+
+suspend fun <T> T.loggingError(action: suspend T.() -> Unit) {
+    try {
+        action()
+    }
+    catch (e: Exception) {
+        e.printStackTrace()
+    }
+}

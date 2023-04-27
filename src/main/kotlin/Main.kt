@@ -1,4 +1,5 @@
 
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
@@ -42,15 +43,12 @@ class Config(
 
 var config = Config()
 
-val ai = ChatGPT(File("data/prompt.txt").readText())
-
 private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureFufu,
     ::configureBullshit,
     ::configureMoney,
-    ai::configureChatGPT,
     ::configureGroupManage,
-    ai::configureManageAi
+    ::configureLottery
 )
 
 fun configure(fun_: (Bot) -> Unit) {
@@ -158,6 +156,7 @@ inline fun <reified T> saveJson(file: String, data: T) {
     File("data", file).writeText(JSON.encodeToString(data))
 }
 
+@OptIn(DelicateCoroutinesApi::class)
 suspend fun main() {
     config = loadJson("config.json") { Config() }
     profiles = loadJson("profiles.json") { mutableMapOf() }
@@ -177,6 +176,11 @@ suspend fun main() {
                     }
                 }
             }
+
+            val ai = ChatGPT(bot, initPrompt = File("data/prompt.txt").readText(), blameInappropriateSpeech = true)
+            ai.startMonitor(1000 * 300)
+            ai.configureChatGPT(bot)
+            ai.configureManageAi(bot)
         } catch (e: Exception) {
             bot.logger.error(e)
         }
