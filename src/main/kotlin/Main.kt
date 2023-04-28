@@ -17,6 +17,7 @@ import net.mamoe.mirai.utils.MiraiLogger
 import user.UserProfile
 import java.io.File
 import javax.script.ScriptEngineManager
+import kotlin.system.exitProcess
 
 val JSON = Json {
     ignoreUnknownKeys = true
@@ -48,7 +49,8 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureMoney,
     ::configureGroupManage,
     ::configureLottery,
-    ::configureBet
+    ::configureBet,
+    ::configureShop,
 )
 
 val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
@@ -189,12 +191,21 @@ suspend fun main() {
     GlobalScope.launch {
         while (true) {
             Thread.sleep(300 * 1000)
+            println("Saving data...")
             saveActions.forEach { it() }
         }
     }
     Runtime.getRuntime().addShutdownHook(Thread {
+        println("Saving data...")
         saveActions.forEach { it() }
     })
-    while (readlnOrNull() != "stop") {
+    while (true) {
+        when (readlnOrNull()) {
+            null -> continue
+            "stop" -> {
+                println("Stopping!")
+                exitProcess(0)
+            }
+        }
     }
 }

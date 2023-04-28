@@ -28,6 +28,8 @@ fun profile(id: Long): UserProfile {
     return profiles[id] ?: UserProfile(id).apply { profiles[id] = this }
 }
 
+fun Long.guz(bot: Bot): String = profile(this).guz(bot)
+
 suspend fun <T> T.loggingError(action: suspend T.() -> Unit) {
     try {
         action()

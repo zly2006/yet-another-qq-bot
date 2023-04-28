@@ -39,7 +39,7 @@ fun configureBet(bot: Bot) {
                     group.sendMessage("你没有下注")
                 }
             }
-            if (message.content.startsWith("#下注 ")) {
+            if (message.content.startsWith("#下注")) {
                 val amount = resolveAmount(message)
                 if (bets.contains(sender.id)) {
                     group.sendMessage("你已经下注了，请#收回赌注")
@@ -56,7 +56,7 @@ fun configureBet(bot: Bot) {
                     }
                 }
             }
-            if (message.content.startsWith("#参与对赌 ")) {
+            if (message.content.startsWith("#参与对赌")) {
                 val target = message.content.substringAfter("#参与对赌 ").toLongOrNull() ?: resolveTarget(message, bot)
                 if (target == null || target == sender.id || target !in bets.keys) {
                     group.sendMessage("无法识别对赌者")
