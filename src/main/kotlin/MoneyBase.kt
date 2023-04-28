@@ -82,8 +82,9 @@ private fun configureTransform(bot: Bot) {
                 val top = sorted.take(10)
                 val rank = sorted.indexOf(sender.profile) + 1
                 group.sendMessage("你的排名为 $rank")
+                @Suppress("NAME_SHADOWING")
                 group.sendMessage("财富榜：\n" + top.mapIndexed { index, it ->
-                    "第${index + 1}名 ${it.asMember(bot)?.guz ?: it.id} ${it.money}金币"
+                    "第${index + 1}名 ${it.guz(bot)} ${it.money}金币"
                 }.joinToString("\n"))
             }
         }
@@ -108,6 +109,7 @@ private fun configureShop(bot: Bot) {
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
             val content = message.content.trim()
+            @Suppress("NAME_SHADOWING")
             if (content == "#商店") {
                 group.sendMessage("商店：\n" + shop.mapIndexed { index, it ->
                     "第${index + 1}件 ${it.name} ${it.price}金币"
@@ -134,9 +136,9 @@ private fun configureShop(bot: Bot) {
                 }
             }
             if (content == "#我的物品") {
-                group.sendMessage("你的物品：\n" + sender.profile.items.entries.map {  it ->
+                group.sendMessage("你的物品：\n" + sender.profile.items.entries.joinToString("\n") {
                     "${it.value} 个 ${it.key}"
-                }.joinToString("\n"))
+                })
             }
         }
     }

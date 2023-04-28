@@ -18,6 +18,8 @@ fun UserProfile.asMember(bot: Bot): Member? {
     return bot.getGroup(lastAppearedGroup)?.get(id)
 }
 
+fun UserProfile.guz(bot: Bot) = asMember(bot)?.guz ?: id.toString()
+
 fun UserProfile.addItem(type: String) {
     items[type] = items.getOrDefault(type, 0) + 1
 }

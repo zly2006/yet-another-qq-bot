@@ -1,7 +1,6 @@
 
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -21,7 +20,7 @@ import javax.script.ScriptEngineManager
 
 val JSON = Json {
     ignoreUnknownKeys = true
-    encodeDefaults = true
+    //encodeDefaults = true
     prettyPrint = true
 }
 
@@ -48,14 +47,17 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureBullshit,
     ::configureMoney,
     ::configureGroupManage,
-    ::configureLottery
+    ::configureLottery,
+    ::configureBet
 )
+
+val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
 
 fun configure(fun_: (Bot) -> Unit) {
     configureFuns.add(fun_)
 }
 
-var profiles = mutableMapOf<Long, UserProfile>()
+var profiles = loadJson("profiles.json") { mutableMapOf<Long, UserProfile>() }
 
 val scriptEngine = ScriptEngineManager().getEngineByName("js")
 val helpMessages = mutableListOf<String>()
@@ -159,7 +161,6 @@ inline fun <reified T> saveJson(file: String, data: T) {
 @OptIn(DelicateCoroutinesApi::class)
 suspend fun main() {
     config = loadJson("config.json") { Config() }
-    profiles = loadJson("profiles.json") { mutableMapOf() }
     config.accounts.forEach {
         val bot = newBot(it.account, it.password, it.log2Console)
         try {
@@ -188,11 +189,12 @@ suspend fun main() {
     GlobalScope.launch {
         while (true) {
             Thread.sleep(300 * 1000)
-            saveJson("profiles.json", profiles)
+            saveActions.forEach { it() }
         }
     }
     Runtime.getRuntime().addShutdownHook(Thread {
-        saveJson("profiles.json", profiles)
+        saveActions.forEach { it() }
     })
-    awaitCancellation()
+    while (readlnOrNull() != "stop") {
+    }
 }
