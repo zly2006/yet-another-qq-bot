@@ -48,7 +48,8 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureBullshit,
     ::configureMoney,
     ::configureGroupManage,
-    ::configureLottery
+    ::configureLottery,
+    ::configureMarry
 )
 
 fun configure(fun_: (Bot) -> Unit) {
