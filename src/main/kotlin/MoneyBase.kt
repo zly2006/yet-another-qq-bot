@@ -6,12 +6,22 @@ import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.content
+import user.Items
 import user.takeMoney
+import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.max
 
 private val moneyRegex = Regex("\\d+(\\.\\d{1,2})?")
 private val numberRegex = Regex("\\d+")
+
+/**
+ * Item name of rewards.
+ * @see [user.Items.itemRegistry]
+ */
+val checkInRewards = buildList {
+    addAll(("GENERATIVE" + "PRETRAINED" + "TRANSFORMER").map { it.toString() })
+}
 
 private fun configureCheckIn(bot: Bot) {
     helpMessages.add("#签到 - 一天一次，连续签到可以获得更多金币")
@@ -34,6 +44,11 @@ private fun configureCheckIn(bot: Bot) {
                     val money = (100..randomMax).random()
                     sender.profile.money += money
                     group.sendMessage("签到成功，获得 $money 金币，连续签到 ${sender.profile.keepCheckInDuration} 天")
+                    val item = checkInRewards.random()
+                    Items.itemRegistry[item]?.let {
+                        group.sendMessage("此次签到，你获得了一个 ${it.rarity} 级的 ${it.name}")
+                        sender.profile.addItem(it.name)
+                    }
                 }
             }
             if (message.content == "#签到信息") {
@@ -82,8 +97,9 @@ private fun configureTransform(bot: Bot) {
                 val top = sorted.take(10)
                 val rank = sorted.indexOf(sender.profile) + 1
                 group.sendMessage("你的排名为 $rank")
+                @Suppress("NAME_SHADOWING")
                 group.sendMessage("财富榜：\n" + top.mapIndexed { index, it ->
-                    "第${index + 1}名 ${it.asMember(bot)?.guz ?: it.id} ${it.money}金币"
+                    "第${index + 1}名 ${it.guz(bot)} ${it.money}金币"
                 }.joinToString("\n"))
             }
         }
@@ -95,22 +111,30 @@ class ShopItem(
     val name: String,
     val price: Double,
     val number: Int,
+    val description: String,
+    val stock: Int,
     val sender: Long,
     val group: Long,
     val expiresOn: Long,
+    val sell: List<String>,
+    val buy: List<String>,
 )
 
-var shop = mutableListOf<ShopItem>()
+var shop = loadJson("shop.json") { mutableListOf<ShopItem>() }
 
-private fun configureShop(bot: Bot) {
+fun configureShop(bot: Bot) {
     helpMessages.add("#商店 - 查看商店")
     helpMessages.add("#购买 <商品序号> - 购买指定商品")
+    helpMessages.add("#查看商品 <商品序号> - 查看指定商品")
+    helpMessages.add("#我的物品 - 查看自己的库存")
+    helpMessages.add("#物品详情 - 根据名称查看物品详情")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
             val content = message.content.trim()
+            @Suppress("NAME_SHADOWING")
             if (content == "#商店") {
                 group.sendMessage("商店：\n" + shop.mapIndexed { index, it ->
-                    "第${index + 1}件 ${it.name} ${it.price}金币"
+                    "第${index + 1}件 ${it.name} - ${it.description}"
                 }.joinToString("\n"))
             }
             if (content.startsWith("#购买")) {
@@ -133,10 +157,56 @@ private fun configureShop(bot: Bot) {
                     group.sendMessage("余额不足")
                 }
             }
+            if (content.startsWith("#查看商品")) {
+                val id = numberRegex.matchAt(content.substringAfter("查看商品").trimStart(), 0)
+                    ?.value?.toInt()?.minus(1)
+                val item = shop.getOrNull(id ?: -1)
+                if (item == null) {
+                    group.sendMessage("无法识别商品")
+                    return@subscribeAlways
+                }
+                group.sendMessage(buildString {
+                    append("商品信息：\n")
+                    append("名称：${item.name}\n")
+                    append("价格：${item.price}金币\n")
+                    append("描述：${item.description}\n")
+                    if (item.stock == -1) {
+                        append("库存：无限\n")
+                    }
+                    else {
+                        append("库存：${item.stock}\n")
+                    }
+                    if (item.expiresOn >= 0) {
+                        append("过期时间：${SimpleDateFormat().format(Date(item.expiresOn))}\n")
+                    }
+                    if (item.sender != 0L) {
+                        append("卖家：${item.sender.guz(bot)}\n")
+                    }
+                    if (item.group != 0L) {
+                        append("限制群：${item.group.guz(bot)} (仅限在此群交易)\n")
+                    }
+                    append("出售物品：${item.sell.joinToString(", ")}\n")
+                    append("收购物品：${item.buy.joinToString(", ")}\n")
+                })
+            }
             if (content == "#我的物品") {
-                group.sendMessage("你的物品：\n" + sender.profile.items.entries.map {  it ->
+                group.sendMessage("你的物品：\n" + sender.profile.items.entries.joinToString("\n") {
                     "${it.value} 个 ${it.key}"
-                }.joinToString("\n"))
+                })
+            }
+            if (content.startsWith("#物品详情")) {
+                val name = content.substringAfter("物品详情").trim()
+                val item = Items.itemRegistry[name]
+                if (item == null) {
+                    group.sendMessage("无法识别物品")
+                    return@subscribeAlways
+                }
+                group.sendMessage(buildString {
+                    append("物品信息：\n")
+                    append("名称：${item.name}\n")
+                    append("描述：${item.description}\n")
+                    append("稀有度：${item.rarity}\n")
+                })
             }
         }
     }

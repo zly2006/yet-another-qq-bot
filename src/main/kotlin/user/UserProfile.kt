@@ -3,6 +3,9 @@ package user
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import java.util.*
+import net.mamoe.mirai.Bot
+import net.mamoe.mirai.message.data.At
+import net.mamoe.mirai.message.data.MessageContent
 
 @Serializable
 class UserProfile(
@@ -17,6 +20,17 @@ class UserProfile(
     @Transient
     var marry: MutableMap<Long, MarryData> = mutableMapOf()
 ) {
+    fun increaseMoney(amount: Double): Boolean {
+        val i = amount.times(100).toInt()
+        if (i <= 0) return false
+        money = money.times(100).plus(i).div(100)
+        return true
+    }
+
+    suspend fun sendMessageWithAt(plainText: MessageContent, bot: Bot) {
+        bot.getGroup(lastAppearedGroup)?.sendMessage(At(id) + plainText)
+    }
+
     @Serializable
     class Punishment(
         val time: Long,

@@ -18,6 +18,8 @@ fun UserProfile.asMember(bot: Bot): Member? {
     return bot.getGroup(lastAppearedGroup)?.get(id)
 }
 
+fun UserProfile.guz(bot: Bot) = asMember(bot)?.guz ?: id.toString()
+
 fun UserProfile.addItem(type: String) {
     items[type] = items.getOrDefault(type, 0) + 1
 }
@@ -25,6 +27,8 @@ fun UserProfile.addItem(type: String) {
 fun profile(id: Long): UserProfile {
     return profiles[id] ?: UserProfile(id).apply { profiles[id] = this }
 }
+
+fun Long.guz(bot: Bot): String = profile(this).guz(bot)
 
 suspend fun <T> T.loggingError(action: suspend T.() -> Unit) {
     try {
