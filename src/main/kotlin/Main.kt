@@ -31,6 +31,7 @@ class Config(
     val admins: MutableList<Long> = mutableListOf(1284588550L),
     val testGroup: MutableList<Long> = mutableListOf(),
     val enabledGroup: MutableList<Long> = mutableListOf(),
+    val allowSpam: MutableList<Long> = mutableListOf(),
     val openaiApiKey: String = "",
 ) {
     @Serializable
@@ -51,7 +52,8 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureLottery,
     ::configureBet,
     ::configureShop,
-    ::configureMarry
+    ::configureMarry,
+    ::configureTypeTextChallenge
 )
 
 val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
@@ -161,6 +163,8 @@ inline fun <reified T> saveJson(file: String, data: T) {
     File("data", file).writeText(JSON.encodeToString(data))
 }
 
+val bots = mutableListOf<Bot>()
+
 @OptIn(DelicateCoroutinesApi::class)
 suspend fun main() {
     config = loadJson("config.json") { Config() }
@@ -168,9 +172,11 @@ suspend fun main() {
         val bot = newBot(it.account, it.password, it.log2Console)
         try {
             bot.login()
+            bots.add(bot)
             configureFuns.forEach { it(bot) }
+            config.allowSpam.mapNotNull { bot.getGroup(it) }.forEach { it.sendMessage("Bot Started!") }
             bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-                if (group.enabled) {
+                if (shouldRespond) {
                     if (message.content.startsWith("#")) {
                         sender.profile.lastAppearedTime = System.currentTimeMillis()
                         sender.profile.lastAppearedGroup = group.id

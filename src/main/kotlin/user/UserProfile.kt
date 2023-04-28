@@ -2,10 +2,11 @@ package user
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
-import java.util.*
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.message.data.At
 import net.mamoe.mirai.message.data.MessageContent
+import okhttp3.internal.toImmutableMap
+import java.util.*
 
 @Serializable
 class UserProfile(
@@ -18,8 +19,16 @@ class UserProfile(
     val items: MutableMap<String, Int> = mutableMapOf(),
     val punishments: MutableList<Punishment> = mutableListOf(),
     @Transient
-    var marry: MutableMap<Long, MarryData> = mutableMapOf()
+    var marry: MutableMap<Long, MarryData> = mutableMapOf(),
+    val records: MutableList<Record> = mutableListOf(),
+    var banUntil: Long = 0,
+    var banPersistent: Boolean = false,
+    var banReason: String = "",
 ) {
+    fun banned(): Boolean {
+        if (banPersistent) return true
+        return banUntil >= System.currentTimeMillis()
+    }
     fun increaseMoney(amount: Double): Boolean {
         val i = amount.times(100).toInt()
         if (i <= 0) return false
@@ -30,6 +39,29 @@ class UserProfile(
     suspend fun sendMessageWithAt(plainText: MessageContent, bot: Bot) {
         bot.getGroup(lastAppearedGroup)?.sendMessage(At(id) + plainText)
     }
+
+    fun hasAll(buy: List<String>): Boolean {
+        val copy = items.toImmutableMap().toMutableMap()
+        for (item in buy) {
+            if (copy[item] == null || copy[item]!! <= 0) return false
+            copy[item] = copy[item]!! - 1
+        }
+        return true
+    }
+
+    fun addItems(sell: List<String>) {
+        for (item in sell) {
+            items[item] = items.getOrDefault(item, 0) + 1
+        }
+    }
+
+    @Serializable
+    class Record(
+        val time: Long,
+        val type: String,
+        val detail: String,
+        val source: String,
+    )
 
     @Serializable
     class Punishment(

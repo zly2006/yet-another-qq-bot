@@ -1,4 +1,5 @@
 
+import annotation.Security
 import kotlinx.serialization.Serializable
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.event.events.GroupMessageEvent
@@ -7,10 +8,12 @@ import net.mamoe.mirai.message.data.MessageChain
 import net.mamoe.mirai.message.data.PlainText
 import net.mamoe.mirai.message.data.content
 import user.Items
+import user.UserProfile
 import user.takeMoney
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.max
+
 
 private val moneyRegex = Regex("\\d+(\\.\\d{1,2})?")
 private val numberRegex = Regex("\\d+")
@@ -27,7 +30,7 @@ private fun configureCheckIn(bot: Bot) {
     helpMessages.add("#签到 - 一天一次，连续签到可以获得更多金币")
     helpMessages.add("#签到信息 - 查看签到信息")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             if (message.content == "#签到") {
                 val date = (System.currentTimeMillis() + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
                 if (sender.profile.lastCheckInDate >= date) {
@@ -42,7 +45,7 @@ private fun configureCheckIn(bot: Bot) {
                     sender.profile.lastCheckInDate = date
                     val randomMax = 100 + max(sender.profile.keepCheckInDuration * 5, 10).toInt()
                     val money = (100..randomMax).random()
-                    sender.profile.money += money
+                    sender.profile.increaseMoney(money.toDouble())
                     group.sendMessage("签到成功，获得 $money 金币，连续签到 ${sender.profile.keepCheckInDuration} 天")
                     val item = checkInRewards.random()
                     Items.itemRegistry[item]?.let {
@@ -63,16 +66,13 @@ fun resolveTarget(message: MessageChain, bot: Bot) = message.filterIsInstance<At
     ?: numberRegex.matchAt(message.content.substringAfter("qq").trimStart(), 0)
         ?.value?.toLong()
 
-fun resolveAmount(message: MessageChain) = moneyRegex.findAll(message.content.substringBefore("金币"))
-    .last().value.toDouble()
+fun resolveAmount(message: MessageChain) = moneyRegex.findAll(message.filterIsInstance<PlainText>()
+    .joinToString { it.content }.substringBefore("金币")).last().value.toDouble()
 
-
-private fun configureTransform(bot: Bot) {
+private fun configureTransfer(bot: Bot) {
     helpMessages.add("#转账 @某人 <金币> - 转账给指定用户")
-    helpMessages.add("#我的余额 - 查看自己的余额")
-    helpMessages.add("#财富榜 - 查看财富榜")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             val content = message.content.trim()
             if (content.startsWith("#转账")) {
                 val target = resolveTarget(message, bot)
@@ -82,13 +82,83 @@ private fun configureTransform(bot: Bot) {
                     return@subscribeAlways
                 }
                 if (sender.profile.takeMoney(amount)) {
-                    profile(target).money += amount
+                    @Security
+                    if (amount > sender.profile.money * 2) {
+                        sender.profile.records.add(
+                            UserProfile.Record(
+                                System.currentTimeMillis(),
+                                "security-alert",
+                                "转账给 ${profile(target).guz(bot)} $amount 金币，疑似小号",
+                                "transfer-money-to-$target"
+                            )
+                        )
+                        // if in 3 days, transfer more than 2 days of > 2/3 money to the same target, then ban
+                        val threeDaysAgo = System.currentTimeMillis() - 3 * 24 * 60 * 60 * 1000
+                        val all = sender.profile.records.filter { it.time > threeDaysAgo && it.type == "security-alert" && it.source.startsWith("transfer-money") }
+                        val max = all.groupBy { it.source }.maxOf { it.value.size }
+                        if (all.size >= 5 || max >= 2) {
+                            sender.profile.records.add(
+                                UserProfile.Record(
+                                    System.currentTimeMillis(),
+                                    "security-ban",
+                                    "转账给 ${profile(target).guz(bot)} $amount 金币，疑似小号，已被封禁并扣除300金币",
+                                    "transfer-money-to-$target"
+                                )
+                            )
+                            sender.profile.money -= 300
+                            sender.profile.banUntil = System.currentTimeMillis() + 4 * 24 * 60 * 60 * 1000
+                            group.sendMessage("你的账号已被封禁4天，并扣除300金币，如需申诉请联系管理员并提供以下信息：transfer-money-to-$target, security-ban")
+                            return@subscribeAlways
+                        }
+                    }
+                    @Security
+                    if (amount > sender.profile.money * 5 && sender.profile.keepCheckInDuration < 3) {
+                        sender.profile.records.add(
+                            UserProfile.Record(
+                                System.currentTimeMillis(),
+                                "security-ban",
+                                "转账给 ${profile(target).guz(bot)} $amount 金币，疑似小号，已被封禁并扣除300金币",
+                                "transfer-money-to-$target"
+                            )
+                        )
+                        sender.profile.money -= 300
+                        sender.profile.banUntil = System.currentTimeMillis() + 4 * 24 * 60 * 60 * 1000
+                        group.sendMessage("你的账号已被封禁4天，并扣除300金币，如需申诉请联系管理员并提供以下信息：transfer-money-to-$target, security-ban")
+                        return@subscribeAlways
+                    }
+
+                    // security check ok
+                    profile(target).increaseMoney(amount)
                     group.sendMessage(PlainText("成功转账 $amount 金币给 ") + At(target))
+                    profile(target).records.add(
+                        UserProfile.Record(
+                        System.currentTimeMillis(),
+                        "transfer-money-record",
+                        "收到 ${sender.profile.guz(bot)} 转账 $amount 金币",
+                        "transfer-money-from-${sender.id}"
+                    ))
+                    sender.profile.records.add(
+                        UserProfile.Record(
+                        System.currentTimeMillis(),
+                        "transfer-money-record",
+                        "转账给 ${profile(target).guz(bot)} $amount 金币",
+                        "transfer-money-to-$target"
+                    ))
                 }
                 else {
                     group.sendMessage("余额不足")
                 }
             }
+        }
+    }
+}
+
+private fun configureBasic(bot: Bot) {
+    helpMessages.add("#我的余额 - 查看自己的余额")
+    helpMessages.add("#财富榜 - 查看财富榜")
+    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+        if (shouldRespond) {
+            val content = message.content.trim()
             if (content == "#我的余额") {
                 group.sendMessage("你的余额为 ${sender.profile.money} 金币")
             }
@@ -123,19 +193,25 @@ class ShopItem(
 var shop = loadJson("shop.json") { mutableListOf<ShopItem>() }
 
 fun configureShop(bot: Bot) {
-    helpMessages.add("#商店 - 查看商店")
+    helpMessages.add("#商店 <页面> - 查看商店")
     helpMessages.add("#购买 <商品序号> - 购买指定商品")
     helpMessages.add("#查看商品 <商品序号> - 查看指定商品")
     helpMessages.add("#我的物品 - 查看自己的库存")
     helpMessages.add("#物品详情 - 根据名称查看物品详情")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             val content = message.content.trim()
             @Suppress("NAME_SHADOWING")
-            if (content == "#商店") {
-                group.sendMessage("商店：\n" + shop.mapIndexed { index, it ->
-                    "第${index + 1}件 ${it.name} - ${it.description}"
-                }.joinToString("\n"))
+            if (content.startsWith("#商店")) {
+                val page = content.substringAfter("#商店").trimStart().toIntOrNull()
+                    ?.minus(1) ?: 0
+
+                val list = shop.drop(page * 5).take(5).mapIndexed { index, it ->
+                    "第${index + 1 + page * 5}件 ${it.name} - ${it.description}"
+                }
+
+                group.sendMessage("商店：\n" + list.joinToString("\n") +
+                        "\n第${page + 1}页，共${shop.size / 5 + 1}页")
             }
             if (content.startsWith("#购买")) {
                 val index = numberRegex.matchAt(content.substringAfter("购买").trimStart(), 0)
@@ -149,12 +225,14 @@ fun configureShop(bot: Bot) {
                     group.sendMessage("无法识别商品")
                     return@subscribeAlways
                 }
-                if (sender.profile.takeMoney(item.price)) {
-                    sender.profile.addItem(item.name)
-                    group.sendMessage("成功购买 ${item.name}")
+                if (sender.profile.hasAll(item.buy) &&
+                    // Notice: side effect here
+                    sender.profile.takeMoney(item.price)) {
+                    sender.profile.addItems(item.sell)
+                    group.sendMessage("购买成功")
                 }
                 else {
-                    group.sendMessage("余额不足")
+                    group.sendMessage("余额不足或没有足够的物品")
                 }
             }
             if (content.startsWith("#查看商品")) {
@@ -213,6 +291,7 @@ fun configureShop(bot: Bot) {
 }
 
 fun configureMoney(bot: Bot) {
+    configureTransfer(bot)
     configureCheckIn(bot)
-    configureTransform(bot)
+    configureBasic(bot)
 }

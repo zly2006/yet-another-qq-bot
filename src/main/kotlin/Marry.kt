@@ -11,7 +11,7 @@ import java.net.URL
 fun configureMarry(bot: Bot) {
     helpMessages.add("#marry - 随机结婚")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             when (message.content) {
                 "#marry" -> {
                     doMarry(it)

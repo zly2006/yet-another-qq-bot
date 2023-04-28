@@ -7,7 +7,7 @@ import java.io.File
 fun configureFufu(bot: Bot) {
     helpMessages.add("fufu/capoo - 随机发送fufu或capoo表情包")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             when (message.content) {
                 "fufu", "capoo" -> {
                     val file = File(message.content).listFiles()?.randomOrNull()

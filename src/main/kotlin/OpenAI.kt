@@ -118,7 +118,7 @@ class ChatGPT(
     @OptIn(DelicateCoroutinesApi::class)
     fun configureChatGPT(bot: Bot) {
         bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-            if (group.enabled) {
+            if (shouldRespond) {
                 if (message.filterIsInstance<At>().firstOrNull()?.target == bot.id) {
                     val content = message.filterIsInstance<PlainText>().joinToString().trim()
                     val euid = MessageDigest.getInstance("SHA-256").digest(sender.id.toString().toByteArray())
@@ -175,17 +175,18 @@ class ChatGPT(
                                     .build()
                                     .sendRequest()
                                 val data = openAI.chatCompletion.asChatResponseData()
-                                    /*.run {
+                                    .run {
+                                        val ingnoreRegex = Regex("非常抱歉，我没有理解您的问题")
                                     // modify the response
                                     ChatCompletionMessageData.create(
                                         "assistant",
                                         this.content.split("。").mapNotNull {
-                                            if (it.contains("抱歉") && it.contains("解") && it.contains("问题")) {
+                                            if (it.contains("抱歉") && it.contains("解") && it.contains("的问题")) {
                                                 null
                                             } else it
                                         }.joinToString("。")
                                     )
-                                }*/
+                                }
                                 map[sender.id]!!.messages += data
                                 buildMessage(group, map[sender.id]!!)
                             }  catch (e: Exception) {
@@ -210,7 +211,7 @@ class ChatGPT(
 
     fun configureManageAi(bot: Bot) {
         bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-            if (sender.id in config.admins && group.enabled) loggingError {
+            if (sender.id in config.admins && shouldRespond) loggingError {
                 if (message.content.startsWith("!ai ")) {
                     val parts = message.content.substring(4).split(" ")
                     when (parts[0]) {

@@ -24,6 +24,16 @@ fun configureGroupManage(bot: Bot) {
                         group.sendMessage("不再启用测试功能")
                     }
                 }
+                "!spam" -> {
+                    if (group.id !in config.allowSpam) {
+                        config.allowSpam.add(group.id)
+                        group.sendMessage("已启用可能被认为垃圾信息的功能")
+                    }
+                    else {
+                        config.allowSpam.remove(group.id)
+                        group.sendMessage("已禁用可能被认为垃圾信息的功能")
+                    }
+                }
             }
             saveJson("config.json", config)
         }

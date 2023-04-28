@@ -3,6 +3,7 @@ import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.contact.User
 import net.mamoe.mirai.contact.nameCardOrNick
+import net.mamoe.mirai.event.events.GroupMessageEvent
 import user.UserProfile
 
 val Group.enabled: Boolean
@@ -38,3 +39,6 @@ suspend fun <T> T.loggingError(action: suspend T.() -> Unit) {
         e.printStackTrace()
     }
 }
+
+val GroupMessageEvent.shouldRespond: Boolean
+    get() = !sender.profile.banned() && group.enabled

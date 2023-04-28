@@ -20,9 +20,9 @@ private data class Data(
 private val data = JSON.decodeFromString<Data>(File("bullshit.data.json").readText())
 
 fun configureBullshit(bot: Bot) {
-    helpMessages.add("用狗屁不通文章生成器写一篇[100字]<主题>")
+    helpMessages.add("用狗屁不通文章生成器写一篇 [100] 字 <主题> 的文章")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             if (message.content.contains("狗屁不通")) {
                 var i = 0
                 fun nextBosh(): String {
@@ -30,8 +30,7 @@ fun configureBullshit(bot: Bot) {
                     i = (i + 1) % data.bosh.size
                     return b
                 }
-                val title =
-                    message.content.substringAfter("写一篇")
+                val title = message.content.substringAfter("写一篇")
                         .substringAfter("关于")
                         .substringAfter("字")
                         .substringBefore("的文章")
@@ -44,7 +43,7 @@ fun configureBullshit(bot: Bot) {
                     while (sb.length < length) {
                         val b = Random.nextInt(0, 100)
                         if (b < 5) {
-                            sb.append(".\n    ")
+                            sb.append("\n    ")
                         }
                         else if (b < 20) {
                             sb.append(

@@ -20,7 +20,7 @@ fun configureBet(bot: Bot) {
         saveJson("bets.json", bets)
     }
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (group.enabled) {
+        if (shouldRespond) {
             if (message.content == "#筹码列表") {
                 val list = bets.toList().sortedBy { (_, value) -> value }.reversed()
                 group.sendMessage(
@@ -41,6 +41,10 @@ fun configureBet(bot: Bot) {
             }
             if (message.content.startsWith("#下注")) {
                 val amount = resolveAmount(message)
+                if (amount < 0.01) {
+                    group.sendMessage("下注金额不能小于 0.01")
+                    return@subscribeAlways
+                }
                 if (bets.contains(sender.id)) {
                     group.sendMessage("你已经下注了，请#收回赌注")
                     return@subscribeAlways
