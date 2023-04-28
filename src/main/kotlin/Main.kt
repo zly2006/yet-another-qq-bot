@@ -1,7 +1,6 @@
 
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
@@ -18,10 +17,11 @@ import net.mamoe.mirai.utils.MiraiLogger
 import user.UserProfile
 import java.io.File
 import javax.script.ScriptEngineManager
+import kotlin.system.exitProcess
 
 val JSON = Json {
     ignoreUnknownKeys = true
-    encodeDefaults = true
+    //encodeDefaults = true
     prettyPrint = true
 }
 
@@ -49,14 +49,18 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureMoney,
     ::configureGroupManage,
     ::configureLottery,
+    ::configureBet,
+    ::configureShop,
     ::configureMarry
 )
+
+val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
 
 fun configure(fun_: (Bot) -> Unit) {
     configureFuns.add(fun_)
 }
 
-var profiles = mutableMapOf<Long, UserProfile>()
+var profiles = loadJson("profiles.json") { mutableMapOf<Long, UserProfile>() }
 
 val scriptEngine = ScriptEngineManager().getEngineByName("js")
 val helpMessages = mutableListOf<String>()
@@ -160,7 +164,6 @@ inline fun <reified T> saveJson(file: String, data: T) {
 @OptIn(DelicateCoroutinesApi::class)
 suspend fun main() {
     config = loadJson("config.json") { Config() }
-    profiles = loadJson("profiles.json") { mutableMapOf() }
     config.accounts.forEach {
         val bot = newBot(it.account, it.password, it.log2Console)
         try {
@@ -189,11 +192,21 @@ suspend fun main() {
     GlobalScope.launch {
         while (true) {
             Thread.sleep(300 * 1000)
-            saveJson("profiles.json", profiles)
+            println("Saving data...")
+            saveActions.forEach { it() }
         }
     }
     Runtime.getRuntime().addShutdownHook(Thread {
-        saveJson("profiles.json", profiles)
+        println("Saving data...")
+        saveActions.forEach { it() }
     })
-    awaitCancellation()
+    while (true) {
+        when (readlnOrNull()) {
+            null -> continue
+            "stop" -> {
+                println("Stopping!")
+                exitProcess(0)
+            }
+        }
+    }
 }
