@@ -51,6 +51,7 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureLottery,
     ::configureBet,
     ::configureShop,
+    ::configureMarry
 )
 
 val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
