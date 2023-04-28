@@ -35,7 +35,8 @@ private suspend fun doMarry(event: GroupMessageEvent) {
             .toList()
         if (aimless.isEmpty()) {
             event.group.sendMessage(buildMessageChain {
-                At(event.sender) + PlainText(" 没可marry目标了")
+                +At(event.sender)
+                +PlainText(" 没可marry目标了")
             })
             return
         }
