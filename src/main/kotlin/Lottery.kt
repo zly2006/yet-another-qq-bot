@@ -14,12 +14,14 @@ fun configureLottery(bot: Bot) {
         if (group.enabled) {
             when (message.content) {
                 "#抽签" -> {
-                    val result = when (val r = (0..100).random(Random(
+                    val r = (0..100).random(Random(
                         (System.currentTimeMillis() + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
+                        + sender.id
                     ).apply {
                         nextBytes(100) // make it looks like randomly
-                    }
-                    )) {
+                    })
+                    println(r)
+                    val result = when (r) {
                         in 0..10 -> "大凶"
                         in 11..30 -> "凶"
                         in 31..60 -> "吉"
@@ -39,11 +41,11 @@ fun configureLottery(bot: Bot) {
                             sender.profile.money += 100
                             group.sendMessage("恭喜你抽中了一等奖，获得100金币")
                         }
-                        in 2..21 -> {
-                            sender.profile.money += 30
-                            group.sendMessage("恭喜你抽中了二等奖，获得30金币")
+                        in 2..11 -> {
+                            sender.profile.money += 40
+                            group.sendMessage("恭喜你抽中了二等奖，获得40金币")
                         }
-                        in 22..56 -> {
+                        in 12..39 -> {
                             sender.profile.money += 10
                             group.sendMessage("恭喜你抽中了三等奖，获得10金币")
                         }
@@ -57,9 +59,9 @@ fun configureLottery(bot: Bot) {
                         每次花费10金币
                         概率：
                         2% 一等奖 100金币
-                        20% 二等奖 30金币
-                        35% 三等奖 10金币
-                        43% 未中奖
+                        10% 二等奖 40金币
+                        28% 三等奖 10金币
+                        60% 未中奖
                     """.trimIndent())
                 }
             }
