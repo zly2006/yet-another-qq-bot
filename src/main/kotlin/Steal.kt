@@ -11,7 +11,10 @@ import kotlin.math.sqrt
 
 @Serializable
 class StealRecord(
-    var thief: Long = 0L, var victim: Long = 0L, var price: Double = 0.0, var time: Int = 0
+    var thief: Long = 0L,
+    var victim: Long = 0L,
+    var price: Double = 0.0,
+    var time: Int = 0
 )
 
 var stealRecords: MutableList<StealRecord> = loadJson("steals.json") { mutableListOf() }
@@ -96,17 +99,29 @@ fun configureSteal(bot: Bot) {
                                 isStolen = true
                                 val money = i.price
                                 sender.profile.increaseMoney(money * 1.15)
-                                profile(target).money -= (money * 1.20)
                                 group.sendMessage(sender.at() + "你已追回 $money 金币，额外奖励15%")
-                                profile(target).sendMessageWithAt(
-                                    PlainText(
-                                        "你偷取的 $money 金币已被追回，额外罚款20%"
-                                    ), bot
-                                )
+                                if (profile(target).money - money * 1.20 >= 0.01) {
+                                    profile(target).money -= (money * 1.20)
+                                    profile(target).sendMessageWithAt(
+                                        PlainText(
+                                            "你偷取的 $money 金币已被追回，额外罚款20%"
+                                        ), bot
+                                    )
+                                } else {
+                                    profile(target).money = 0.01
+                                    profile(target).sendMessageWithAt(
+                                        PlainText(
+                                            "你偷取的 $money 金币已被追回，实际缴纳金额" +
+                                                    (profile(target).money - 0.01).toString()
+                                        ), bot
+                                    )
+                                }
                                 i.time = 0  // 作废
                             }
                         }
-                        if (!isStolen) group.sendMessage(sender.at() + "该用户在48小时内没有偷窃您的金币")
+                        if (!isStolen) {
+                            group.sendMessage(sender.at() + "该用户在48小时内没有偷窃您的金币")
+                        }
                     }
                 }
             }
