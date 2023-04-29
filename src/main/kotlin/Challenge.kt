@@ -28,7 +28,6 @@ suspend fun newChallenge(g: Group) {
         g2d.fillRect(0, 0, width, height)
         g2d.color = Color.BLACK
         g2d.drawString("以最快的速度输入以下内容领取奖励：", 10, 15)
-        g2d.font = Font("Monaco", Font.PLAIN, 18)
         if ((0..1).random() == 1) {
             lastKey = chars.shuffled().take(24).joinToString("")
             // draw chars with random rotation
@@ -37,6 +36,7 @@ suspend fun newChallenge(g: Group) {
                 val y = 30
                 val angle = Random.nextDouble() - 0.5
                 g2d.rotate(angle, x.toDouble(), y.toDouble())
+                g2d.font = Font("Monaco", Font.PLAIN, (15..20).random())
                 g2d.drawString(c.toString(), x, y)
                 g2d.rotate(-angle, x.toDouble(), y.toDouble())
             }
