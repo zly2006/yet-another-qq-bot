@@ -9,8 +9,44 @@ import kotlin.math.pow
 import kotlin.math.round
 import kotlin.math.sqrt
 
-var steals:MutableList<MutableList<Long>> =
-    loadJson("steals.json"){ mutableListOf() } // 偷窃者，受害者，偷窃数量，偷窃时间
+class StealRecord {
+    var thief: Long = 0
+    var victim: Long = 0
+    var price: Double = 0.0
+    var time: Int = 0
+    fun fromArray(arr: MutableList<Long>) {
+        this.thief = arr[0]
+        this.victim = arr[1]
+        this.price = arr[2].toDouble()
+        this.time = arr[3].toInt()
+    }
+    fun toArray(): MutableList<Long> {
+        return mutableListOf<Long>(this.thief, this.victim,
+            this.price.toLong(), this.time.toLong())
+    }
+}
+
+var st: MutableList<MutableList<Long>> =
+    loadJson("steals.json") { mutableListOf() }
+var stealRecords: MutableList<StealRecord> = mutableListOf()
+
+fun stealRecordsInit(l: MutableList<MutableList<Long>>): MutableList<StealRecord> {
+    val stealRecords: MutableList<StealRecord> = mutableListOf()
+    for (i in l) {
+        val record = StealRecord()
+        record.fromArray(i)
+        stealRecords.add(record)
+    }
+    return stealRecords
+}
+
+fun stealRecordsExport(l: MutableList<StealRecord>): MutableList<MutableList<Long>> {
+    val st = mutableListOf<MutableList<Long>>()
+    for (i in l) {
+        st.add(i.toArray())
+    }
+    return st
+}
 
 fun normal(x: Double, mu: Double, sigma: Double): Double {
 
@@ -22,7 +58,7 @@ fun configureSteal(bot: Bot) {
     helpMessages.add("#偷金币 <玩家QQ号或@>")
     helpMessages.add("#举报小偷 <玩家QQ号或@>")
 
-    saveActions.add {saveJson("steals.json", steals)}
+    saveActions.add {saveJson("steals.json", stealRecordsExport(stealRecords))}
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (group.enabled) {
             if (message.content.startsWith("#偷金币")) {
@@ -39,8 +75,8 @@ fun configureSteal(bot: Bot) {
                     }
 
                     else -> {
-                        for (i in steals) {
-                            if (i[0] == sender.id && (i[4]/60/60/24).toInt() == (time/60/60/24).toInt()) {
+                        for (i in stealRecords) {
+                            if (i.thief == sender.id && (i.time/60/60/24).toInt() == (time/60/60/24).toInt()) {
                                 group.sendMessage("你今天已经偷过金币了")
                                 return@subscribeAlways
                             }
@@ -59,16 +95,19 @@ fun configureSteal(bot: Bot) {
                         if (targetMoney < coinsGet) {
                             coinsGet = targetMoney
                         }
-                        profile(target).takeMoney(coinsGet)
+                        if (profile(target).takeMoney(coinsGet)) {
+                            profile(target).sendMessageWithAt(
+                                PlainText("你被 ${sender.guz} 偷走了 $coinsGet 个金币！"),
+                                bot
+                            )
+                        }
                         sender.profile.increaseMoney(coinsGet)
-
                         group.sendMessage(sender.at() + "你偷走了 $coinsGet 个金币！")
-                        profile(target).sendMessageWithAt(
-                            PlainText("你被 ${sender.guz} 偷走了 $coinsGet 个金币！"),
-                            bot
-                        )
 
-                        steals.add(mutableListOf(sender.id, target, coinsGet.toLong(), time.toLong()))
+
+                        val newRecord= StealRecord()
+                        newRecord.fromArray(mutableListOf(sender.id, target, coinsGet.toLong(), time.toLong()))
+                        stealRecords.add(newRecord)
 
                         return@subscribeAlways
                     }
@@ -85,15 +124,16 @@ fun configureSteal(bot: Bot) {
                     }
                     else -> {
                         var isStolen = false
-                        for (i in steals) {
-                            if (i[1] == sender.id && time-i[3]<=(48*60*60) && i[0]==target) {
+                        for (i in stealRecords) {
+                            if (i.victim == sender.id && time-i.time<=(48*60*60) && i.thief==target) {
                                 isStolen = true
-                                val money = i[2]
+                                val money = i.price
                                 sender.profile.increaseMoney(money.toDouble()*1.15)
-                                profile(target).takeMoney(money.toDouble()*1.20)
+                                profile(target).increaseMoney(-money.toDouble()*1.20)
                                 group.sendMessage(sender.at()+"你已追回 $money 金币，额外奖励15%")
                                 profile(target).sendMessageWithAt(PlainText(
                                     "你偷取的 $money 金币已被追回，额外罚款20%"), bot)
+                                i.time = 0  // 作废
                             }
                         }
                         if (!isStolen)  group.sendMessage(sender.at()+"该用户在48小时内没有偷窃您的金币")
