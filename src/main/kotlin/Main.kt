@@ -17,6 +17,7 @@ import net.mamoe.mirai.utils.MiraiLogger
 import user.UserProfile
 import java.awt.Button
 import java.awt.Frame
+import java.awt.TextField
 import java.io.File
 import javax.script.ScriptEngineManager
 import kotlin.system.exitProcess
@@ -210,12 +211,30 @@ suspend fun main() {
     val frame = Frame("YAB4J").apply {
         isVisible = true
         isResizable = false
+        layout = null
         setSize(200, 150)
         add(Button("Stop").apply {
             addActionListener {
                 println("Stopping!")
                 exitProcess(0)
             }
+            setBounds(0, 0, 40, 20)
+        })
+        // search by user id
+        add(TextField().apply {
+            setBounds(40, 0, 200, 20)
+        })
+        add(Button("Search").apply {
+            addActionListener {
+                val id = (components[1] as TextField).text.toLongOrNull()
+                if (id != null) {
+                    val profile = profiles[id]
+                    if (profile != null) {
+                        println(profile)
+                    }
+                }
+            }
+            setBounds(240, 0, 40, 20)
         })
     }
     while (true) {
