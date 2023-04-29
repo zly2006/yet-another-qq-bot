@@ -62,7 +62,7 @@ private fun GroupMessageEvent.doLottery(): Message {
 
 fun configureLottery(bot: Bot) {
     helpMessages.add("#抽签 - 今日运势")
-    helpMessages.add("#抽奖 / #十连 - 抽奖")
+    helpMessages.add("#抽奖 / #十连 / #百连 - 抽奖")
     helpMessages.add("#抽奖规则 - 抽奖规则")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (shouldRespond) {
@@ -78,10 +78,21 @@ fun configureLottery(bot: Bot) {
                         }
                     })
                 }
+                "#百连" -> {
+                    if (!sender.profile.takeMoney(1000.0)) {
+                        group.sendMessage("金币不足")
+                        return@subscribeAlways
+                    }
+                    group.sendMessage(buildForwardMessage {
+                        repeat(100) {
+                            bot says doLottery()
+                        }
+                    })
+                }
                 "#抽签" -> {
                     val r = (0..100).random(Random(
                         (System.currentTimeMillis() + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
-                        + sender.id
+                                + sender.id
                     ).apply {
                         nextBytes(100) // make it looks like randomly
                     })
@@ -104,15 +115,15 @@ fun configureLottery(bot: Bot) {
                 }
                 "#抽奖规则" -> {
                     group.sendMessage("""
-                        每次花费10金币
-                        概率：
-                        0.02% 特等奖 3000金币
-                        0.01% 特等奖 随机字母碎片
-                        1.98% 一等奖 100金币
-                        10% 二等奖 40金币
-                        28% 三等奖 10金币
-                        60% 未中奖
-                    """.trimIndent())
+                                每次花费10金币
+                                概率：
+                                0.02% 特等奖 3000金币
+                                0.01% 特等奖 随机字母碎片
+                                1.98% 一等奖 100金币
+                                10% 二等奖 40金币
+                                28% 三等奖 10金币
+                                60% 未中奖
+                            """.trimIndent())
                 }
             }
         }

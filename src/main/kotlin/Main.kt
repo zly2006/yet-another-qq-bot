@@ -15,6 +15,8 @@ import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.DirectoryLogger
 import net.mamoe.mirai.utils.MiraiLogger
 import user.UserProfile
+import java.awt.Button
+import java.awt.Frame
 import java.io.File
 import javax.script.ScriptEngineManager
 import kotlin.system.exitProcess
@@ -64,7 +66,7 @@ fun configure(fun_: (Bot) -> Unit) {
 
 var profiles = loadJson("profiles.json") { mutableMapOf<Long, UserProfile>() }
 
-val scriptEngine = ScriptEngineManager().getEngineByName("js")
+val scriptEngine = ScriptEngineManager().getEngineByName("js")!!
 val helpMessages = mutableListOf<String>()
 
 fun newBot(account: Long, password: String, log2Console: Boolean = true): Bot {
@@ -187,10 +189,8 @@ suspend fun main() {
                 }
             }
 
-            val ai = ChatGPT(bot, initPrompt = File("data/prompt.txt").readText(), blameInappropriateSpeech = true)
-            ai.startMonitor(1000 * 300)
-            ai.configureChatGPT(bot)
-            ai.configureManageAi(bot)
+            val ai = ChatOnce(File("data/prompt.txt").readText())
+            ai.configureAi(bot)
         } catch (e: Exception) {
             bot.logger.error(e)
         }
@@ -206,6 +206,17 @@ suspend fun main() {
         println("Saving data...")
         saveActions.forEach { it() }
     })
+    val frame = Frame("YAB4J").apply {
+        isVisible = true
+        isResizable = false
+        setSize(200, 150)
+        add(Button("Stop").apply {
+            addActionListener {
+                println("Stopping!")
+                exitProcess(0)
+            }
+        })
+    }
     while (true) {
         when (readlnOrNull()) {
             null -> continue

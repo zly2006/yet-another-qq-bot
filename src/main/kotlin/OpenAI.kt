@@ -10,6 +10,7 @@ import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.message.data.*
+import net.mamoe.mirai.message.data.MessageSource.Key.quote
 import user.UserProfile
 import java.security.MessageDigest
 import java.util.*
@@ -26,8 +27,9 @@ data class Context(
 )
 
 private const val suffix = """
-你的答案应该基于现实世界。现在回答我上面的最后一个问题，在开始谈话之前不要道歉。如果你不想回答问题，你可以说“我不想回答这个问题”。
-不要模拟任何人或任何事！请遵循内容政策和道德要求，专注于为Starlight Server提供帮助。
+你的答案应该基于现实世界。不要模拟任何人或任何事！请遵循内容政策和道德要求，
+专注于为Starlight Server提供帮助。任何与Starlight Server无关的话题都应该忽略。
+你应该只对提问进行回答，而不是进行聊天或写作等其他活动。如果你的回答触及了无关话题，请发送"Alkji".
 """
 
 private val previousConversation = mutableMapOf<UUID, Context>()
@@ -175,18 +177,6 @@ class ChatGPT(
                                     .build()
                                     .sendRequest()
                                 val data = openAI.chatCompletion.asChatResponseData()
-                                    .run {
-                                        val ingnoreRegex = Regex("非常抱歉，我没有理解您的问题")
-                                    // modify the response
-                                    ChatCompletionMessageData.create(
-                                        "assistant",
-                                        this.content.split("。").mapNotNull {
-                                            if (it.contains("抱歉") && it.contains("解") && it.contains("的问题")) {
-                                                null
-                                            } else it
-                                        }.joinToString("。")
-                                    )
-                                }
                                 map[sender.id]!!.messages += data
                                 buildMessage(group, map[sender.id]!!)
                             }  catch (e: Exception) {
@@ -360,6 +350,67 @@ class ChatGPT(
                 map.values.removeIf { now - it.lastRequest > expire }
             }
         }.start()
+    }
+}
+
+class ChatOnce(
+    private val initPrompt: String? = null,
+) {
+    private val requestTime = mutableMapOf<Long, Long>()
+    @OptIn(DelicateCoroutinesApi::class)
+    fun configureAi(bot: Bot) {
+        bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+            if (shouldRespond) {
+                if (message.filterIsInstance<At>().firstOrNull()?.target == bot.id) {
+                    if (requestTime.getOrDefault(sender.id, 0) + 1000 * 60 > System.currentTimeMillis()) {
+                        group.sendMessage(message.quote() + "休息一下再来提问吧！")
+                        return@subscribeAlways
+                    }
+                    if (message.content.length > 200) {
+                        group.sendMessage(message.quote() + "你的问题太长了，我不想回答")
+                        return@subscribeAlways
+                    }
+                    requestTime[sender.id] = System.currentTimeMillis()
+                    GlobalScope.launch {
+                        val message = message.quote() + (withTimeoutOrNull(15.seconds) {
+                            try {
+                                val history = ChatCompletionData.builder()
+                                    .setModel("gpt-3.5-turbo")
+                                    .setMessages(
+                                        listOfNotNull(
+                                            initPrompt?.let { ChatCompletionMessageData.create("system", it) },
+                                            ChatCompletionMessageData.create("user", suffix + message.content + suffix)
+                                        )
+                                    )
+                                    .build()
+                                val openAI = OpenAI.builder()
+                                    .setApiKey(config.openaiApiKey)
+                                    .createChatCompletion(history)
+                                    .build()
+                                    .sendRequest()
+                                val response = openAI.chatCompletion.asText()
+                                if (response.contains("Alkji")) {
+                                    "你的问题好像和Starlight无关呢~"
+                                } else {
+                                    response
+                                }
+                            } catch (e: Exception) {
+                                bot.logger.error(e)
+                                fun getAllReason(e: Throwable): String {
+                                    if (e.cause != null) e.message + getAllReason(e.cause!!)
+                                    return e.message ?: ""
+                                }
+                                if (getAllReason(e).contains("Rate limit reached for default-gpt"))
+                                    "AI达到了请求速率上限，这是由于您或其他玩家过快的使用AI"
+                                else
+                                    "AI出错了，联系管理员获取帮助"
+                            }
+                        } ?: "AI超时了")
+                        group.sendMessage(message)
+                    }
+                }
+            }
+        }
     }
 }
 
