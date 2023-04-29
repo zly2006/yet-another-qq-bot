@@ -65,6 +65,10 @@ fun configureSteal(bot: Bot) {
                         if (targetMoney < coinsGet) {
                             coinsGet = targetMoney
                         }
+                        if (coinsGet < 0.01) {
+                            group.sendMessage("他已经身无分文了，你真的忍心抢吗？")
+                            return@subscribeAlways
+                        }
                         profile(target).money -= coinsGet
                         profile(target).sendMessageWithAt(
                             PlainText("你被 ${sender.guz} 偷走了 $coinsGet 个金币！"), bot
@@ -100,22 +104,8 @@ fun configureSteal(bot: Bot) {
                                 val money = i.price
                                 sender.profile.increaseMoney(money * 1.15)
                                 group.sendMessage(sender.at() + "你已追回 $money 金币，额外奖励15%")
-                                if (profile(target).money - money * 1.20 >= 0.01) {
-                                    profile(target).money -= (money * 1.20)
-                                    profile(target).sendMessageWithAt(
-                                        PlainText(
-                                            "你偷取的 $money 金币已被追回，额外罚款20%"
-                                        ), bot
-                                    )
-                                } else {
-                                    profile(target).money = 0.01
-                                    profile(target).sendMessageWithAt(
-                                        PlainText(
-                                            "你偷取的 $money 金币已被追回，实际缴纳金额" +
-                                                    (profile(target).money - 0.01).toString()
-                                        ), bot
-                                    )
-                                }
+                                profile(target).money -= (money * 1.20)
+                                profile(target).sendMessageWithAt(PlainText("你偷取的 $money 金币已被追回，额外罚款20%"), bot)
                                 i.time = 0  // 作废
                             }
                         }
