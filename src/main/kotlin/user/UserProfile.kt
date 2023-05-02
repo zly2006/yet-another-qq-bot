@@ -25,6 +25,7 @@ class UserProfile(
     var banPersistent: Boolean = false,
     var banReason: String = "",
     var vipDateUntil: Long = 0,
+    val stealMoneyRecords: MutableList<StealMoneyRecord> = mutableListOf()
 ) {
     fun banned(): Boolean {
         if (banPersistent) return true
@@ -67,6 +68,14 @@ class UserProfile(
             }
         }
     }
+
+    @Serializable
+    class StealMoneyRecord(
+        val time: Long,
+        val target: Long,
+        val amount: Double,
+        var caught: Boolean = false
+    )
 
     @Serializable
     class Record(

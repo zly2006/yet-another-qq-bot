@@ -19,8 +19,10 @@ import kotlin.math.max
 
 private val moneyRegex = Regex("\\d+(\\.\\d{1,2})?")
 private val numberRegex = Regex("\\d+")
+
+fun date(timestamp: Long) = (timestamp + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
 val date
-    get() = (System.currentTimeMillis() + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
+    get() = date(System.currentTimeMillis())
 
 /**
  * Item name of rewards.
