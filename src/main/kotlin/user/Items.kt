@@ -35,9 +35,6 @@ class Item(
 }
 
 object Items {
-    init {
-
-    }
     val itemRegistry = loadJson("items.json") { mutableMapOf<String, Item>().apply {
         put("test", Item("测试物品", "这是一个测试物品", Item.Rarity.COMMON))
         ('A'..'Z').map { Item(it.toString(), "字母碎片 $it", Item.Rarity.COMMON) }.forEach { put(it.name, it) }

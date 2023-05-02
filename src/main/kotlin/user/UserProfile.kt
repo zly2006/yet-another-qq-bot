@@ -24,6 +24,7 @@ class UserProfile(
     var banUntil: Long = 0,
     var banPersistent: Boolean = false,
     var banReason: String = "",
+    var vipDateUntil: Long = 0,
 ) {
     fun banned(): Boolean {
         if (banPersistent) return true
@@ -52,6 +53,18 @@ class UserProfile(
     fun addItems(sell: List<String>) {
         for (item in sell) {
             items[item] = items.getOrDefault(item, 0) + 1
+        }
+    }
+
+    fun removeItems(buy: List<String>) {
+        for (item in buy) {
+            val c = items.getOrDefault(item, 0) - 1
+            if (c == 0) {
+                items.remove(item)
+            }
+            else {
+                items[item] = c
+            }
         }
     }
 

@@ -8,6 +8,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Group
+import net.mamoe.mirai.contact.Member
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.message.data.MessageSource.Key.quote
@@ -24,7 +25,66 @@ data class Context(
     var responded: Boolean = true,
     var lastRequest: Long = System.currentTimeMillis(),
     var lockedTimestamp: Long = System.currentTimeMillis(),
-)
+) {
+    suspend fun onMessage(instance: ChatGPT, content: String, euid: String, group: Group, sender: Member) {
+        if (lockedTimestamp + 1000 * 300 > System.currentTimeMillis()) {
+            if (group.id !in config.testGroup) {
+                group.sendMessage("休息一下再来提问吧！")
+            }
+        }
+        lastRequest = System.currentTimeMillis()
+        if (!responded) {
+            group.sendMessage("请等待AI回复")
+            return
+        }
+        if (messages.size > 8) {
+            group.sendMessage("聊天消息太长了，会话已清空。请休息 5 分钟再来提问吧！")
+            if (sender.id !in config.admins) {
+                lockedTimestamp = System.currentTimeMillis()
+            }
+            messages.clear()
+            return
+        }
+
+        if (content == "清空") {
+            instance.resetContext(sender.id)
+            group.sendMessage("已清空")
+            return
+        }
+        responded = false
+        val message = withTimeoutOrNull(15.seconds) {
+            try {
+                messages += ChatCompletionMessageData.create("user", content)
+                val history = ChatCompletionData.builder()
+                    .setUser(euid)
+                    .setModel("gpt-3.5-turbo")
+                    .setMessages(messages)
+                    .build()
+                val openAI = OpenAI.builder()
+                    .setApiKey(config.openaiApiKey)
+                    .createChatCompletion(history)
+                    .setTimeout(15.seconds.toJavaDuration())
+                    .build()
+                    .sendRequest()
+                val data = openAI.chatCompletion.asChatResponseData()
+                messages += data
+                instance.buildMessage(group, this@Context)
+            } catch (e: Exception) {
+                group.bot.logger.error(e)
+                fun getAllReason(e: Throwable): String {
+                    if (e.cause != null) e.message + getAllReason(e.cause!!)
+                    return e.message ?: ""
+                }
+                if (getAllReason(e).contains("Rate limit reached for default-gpt"))
+                    PlainText("AI达到了请求速率上限，这是由于您或其他玩家过快的使用AI。你可以 @我 并说“清空”来重新开始一段会话")
+                else
+                    PlainText("AI出错了，联系管理员获取帮助，你可以 @我 并说“清空”来重新开始一段会话")
+            }
+        } ?: PlainText("AI请求超时。")
+        responded = true
+        group.sendMessage(message)
+    }
+}
 
 private const val suffix = """
 你的答案应该基于现实世界。不要模拟任何人或任何事！请遵循内容政策和道德要求，
@@ -38,7 +98,6 @@ private val previousConversation = mutableMapOf<UUID, Context>()
 class ChatGPT(
     val bot: Bot,
     private val initPrompt: String? = null,
-    private val antiSimulate: Boolean = true,
     private val blameInappropriateSpeech: Boolean = false,
 ) {
     private val map = mutableMapOf<Long, Context>()
@@ -49,7 +108,7 @@ class ChatGPT(
         }
     )
 
-    private fun buildMessage(
+    fun buildMessage(
         group: Group,
         context: Context,
         showSystem: Boolean = false,
@@ -81,7 +140,7 @@ class ChatGPT(
     }
 
     @OptIn(DelicateCoroutinesApi::class)
-    private suspend fun resetContext(id: Long, setNull: Boolean = false) {
+    suspend fun resetContext(id: Long, setNull: Boolean = false) {
         if (map[id] == null && setNull) return
 
         if (blameInappropriateSpeech && map[id] != null) {
@@ -129,71 +188,10 @@ class ChatGPT(
                     if (map[sender.id] == null) {
                         resetContext(sender.id)
                     }
-                    if (map[sender.id]!!.lockedTimestamp + 1000 * 300 > System.currentTimeMillis()) {
-                        if (group.id !in config.testGroup) {
-                            group.sendMessage("休息一下再来提问吧！")
-                            return@subscribeAlways
-                        }
-                    }
-                    map[sender.id]!!.lastRequest = System.currentTimeMillis()
-                    if (!map[sender.id]!!.responded) {
-                        group.sendMessage("请等待AI回复")
-                        return@subscribeAlways
-                    }
-                    if (map[sender.id]!!.messages.size > 8) {
-                        group.sendMessage("聊天消息太长了，会话已清空。请休息 5 分钟再来提问吧！")
-                        if (sender.id !in config.admins) {
-                            map[sender.id]!!.lockedTimestamp = System.currentTimeMillis()
-                        }
-                        map[sender.id]!!.messages.clear()
-                        return@subscribeAlways
-                    }
+                    val context = map[sender.id]!!
 
-                    if (content == "清空") {
-                        resetContext(sender.id)
-                        group.sendMessage("已清空")
-                        return@subscribeAlways
-                    }
-
-                    map[sender.id]!!.responded = false
                     GlobalScope.launch {
-                        val message = withTimeoutOrNull(15.seconds) {
-                            try {
-                                map[sender.id]!!.messages += ChatCompletionMessageData.create("user", content)
-                                val messages = if (antiSimulate) {
-                                    // add a suffix, so that GPT will follow our content policy.
-                                    map[sender.id]!!.messages + ChatCompletionMessageData.create("user", suffix)
-                                } else {
-                                    map[sender.id]!!.messages
-                                }
-                                val history = ChatCompletionData.builder()
-                                    .setUser(euid)
-                                    .setModel("gpt-3.5-turbo")
-                                    .setMessages(messages)
-                                    .build()
-                                val openAI = OpenAI.builder()
-                                    .setApiKey(config.openaiApiKey)
-                                    .createChatCompletion(history)
-                                    .setTimeout(15.seconds.toJavaDuration())
-                                    .build()
-                                    .sendRequest()
-                                val data = openAI.chatCompletion.asChatResponseData()
-                                map[sender.id]!!.messages += data
-                                buildMessage(group, map[sender.id]!!)
-                            }  catch (e: Exception) {
-                                bot.logger.error(e)
-                                fun getAllReason(e: Throwable): String {
-                                    if (e.cause != null) e.message + getAllReason(e.cause!!)
-                                    return e.message ?: ""
-                                }
-                                if (getAllReason(e).contains("Rate limit reached for default-gpt"))
-                                    PlainText("AI达到了请求速率上限，这是由于您或其他玩家过快的使用AI。你可以 @我 并说“清空”来重新开始一段会话")
-                                else
-                                    PlainText("AI出错了，联系管理员获取帮助，你可以 @我 并说“清空”来重新开始一段会话")
-                            }
-                        } ?: PlainText("AI请求超时。")
-                        map[sender.id]!!.responded = true
-                        group.sendMessage(message)
+                        context.onMessage(this@ChatGPT, content, euid, group, sender)
                     }
                 }
             }
@@ -421,7 +419,7 @@ fun configureAI(
     antiSimulate: Boolean = true,
     blameInappropriateSpeech: Boolean = false,
 ) {
-    val chatGPT = ChatGPT(bot, initPrompt, antiSimulate, blameInappropriateSpeech)
+    val chatGPT = ChatGPT(bot, initPrompt, blameInappropriateSpeech)
     chatGPT.configureChatGPT(bot)
     chatGPT.configureManageAi(bot)
 }

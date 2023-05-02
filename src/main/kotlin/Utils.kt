@@ -42,3 +42,6 @@ suspend fun <T> T.loggingError(action: suspend T.() -> Unit) {
 
 val GroupMessageEvent.shouldRespond: Boolean
     get() = !sender.profile.banned() && group.enabled
+
+val Bot.shouldRespondChannel
+    get() = eventChannel.filterIsInstance<GroupMessageEvent>().filter { it.shouldRespond }

@@ -10,15 +10,12 @@ fun configureFufu(bot: Bot) {
         "fufu" to 277,
         "capoo" to 873
     )
-    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (shouldRespond) {
-            when (val key = message.content) {
-                "fufu", "capoo" -> {
-                    Config::class.java.getResourceAsStream("/$key/${(0 until size[key]!!).random()}").use {
-                        it?.let { group.sendMessage(group.uploadImage(it)) }
-                            ?: group.sendMessage("没有${message.content}了")
-                    }
-                }
+    bot.shouldRespondChannel.subscribeAlways<GroupMessageEvent> {
+        val key = message.content.trim()
+        if (key == "fufu" || key == "capoo") {
+            Config::class.java.getResourceAsStream("/$key/${(0 until size[key]!!).random()}").use {
+                it?.let { group.sendMessage(group.uploadImage(it)) }
+                    ?: group.sendMessage("没有${message.content}了")
             }
         }
     }

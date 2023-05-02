@@ -18,6 +18,7 @@ import user.UserProfile
 import java.awt.Button
 import java.awt.Frame
 import java.awt.TextField
+import java.awt.image.BufferedImage
 import java.io.File
 import javax.script.ScriptEngineManager
 import kotlin.system.exitProcess
@@ -208,6 +209,7 @@ suspend fun main() {
         saveActions.forEach { it() }
     })
     val frame = Frame("YAB4J").apply {
+        iconImage = BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB)
         isVisible = true
         isResizable = false
         layout = null

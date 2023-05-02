@@ -11,8 +11,7 @@ import java.util.*
 import kotlin.random.Random
 
 private fun GroupMessageEvent.doLottery(): Message {
-    val n = (0..10000).random()
-    return when (n) {
+    return when ((0..10000).random()) {
         in 0 until 2 -> {
             sender.profile.money += 3000
             sender.profile.records.add(
@@ -119,7 +118,7 @@ fun configureLottery(bot: Bot) {
                                 概率：
                                 0.02% 特等奖 3000金币
                                 0.01% 特等奖 随机字母碎片
-                                1.98% 一等奖 100金币
+                                1.97% 一等奖 100金币
                                 10% 二等奖 40金币
                                 28% 三等奖 10金币
                                 60% 未中奖

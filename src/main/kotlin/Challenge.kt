@@ -20,7 +20,7 @@ val chars = ('a'..'z') + ('A'..'Z') + ('0'..'9')
 
 var lastKey: String? = null
 
-suspend fun newChallenge(g: Group) {
+suspend fun newChallenge(g: Group): ByteArray {
     val image = BufferedImage(300, 40, BufferedImage.TYPE_INT_ARGB).apply {
         val g2d = createGraphics()
         g2d.font = Font("微软雅黑", Font.PLAIN, 12)
@@ -62,10 +62,14 @@ suspend fun newChallenge(g: Group) {
         g.bot.getFriend(1284588550L)?.sendMessage("TypeTextChallenge: $lastKey")
         g2d.dispose()
     }
-    ByteArrayInputStream(ByteArrayOutputStream().use {
+    val ba = ByteArrayOutputStream().use {
         ImageIO.write(image, "png", it)
         it.toByteArray()
-    }).use { it.toExternalResource().use { g.sendMessage(g.uploadImage(it)) } }
+    }
+    ByteArrayInputStream(ba).use {
+        it.toExternalResource().use { g.sendMessage(g.uploadImage(it)) }
+    }
+    return ba
 }
 
 @OptIn(DelicateCoroutinesApi::class)
@@ -83,7 +87,11 @@ fun configureTypeTextChallenge(bot: Bot) {
     }
     GlobalScope.launch {
         while (true) {
-            delay(120_000)
+            for (i in 0 until 40) {
+                delay(30_000)
+                if (lastKey == null)
+                    break
+            }
             val g = config.allowSpam.randomOrNull()?.let { bot.getGroup(it) }
             delay(1000)
             if (g != null)

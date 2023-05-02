@@ -11,12 +11,16 @@ import user.Items
 import user.UserProfile
 import user.takeMoney
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
 import java.util.*
 import kotlin.math.max
 
 
 private val moneyRegex = Regex("\\d+(\\.\\d{1,2})?")
 private val numberRegex = Regex("\\d+")
+val date
+    get() = (System.currentTimeMillis() + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
 
 /**
  * Item name of rewards.
@@ -32,20 +36,23 @@ private fun configureCheckIn(bot: Bot) {
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (shouldRespond) {
             if (message.content == "#签到") {
-                val date = (System.currentTimeMillis() + TimeZone.getDefault().rawOffset) / 1000 / 60 / 60 / 24
-                if (sender.profile.lastCheckInDate >= date) {
+                val profile = sender.profile
+                if (profile.lastCheckInDate >= date) {
                     group.sendMessage("今天已经签到过了")
                     return@subscribeAlways
                 } else {
-                    if (sender.profile.lastCheckInDate == date - 1) {
-                        sender.profile.keepCheckInDuration++
+                    if (profile.lastCheckInDate == date - 1) {
+                        profile.keepCheckInDuration++
                     } else {
-                        sender.profile.keepCheckInDuration = 1
+                        profile.keepCheckInDuration = 1
                     }
-                    sender.profile.lastCheckInDate = date
-                    val randomMax = 100 + max(sender.profile.keepCheckInDuration * 5, 10).toInt()
-                    val money = (100..randomMax).random()
-                    sender.profile.increaseMoney(money.toDouble())
+                    profile.lastCheckInDate = date
+                    val randomMax = 100 + max(profile.keepCheckInDuration * 5, 10).toInt()
+                    val money = (100..randomMax).random().plus(
+                        if (profile.vipDateUntil < date) 90 // vip
+                        else 0
+                    )
+                    profile.increaseMoney(money.toDouble())
                     group.sendMessage("签到成功，获得 $money 金币，连续签到 ${sender.profile.keepCheckInDuration} 天")
                     val item = checkInRewards.random()
                     Items.itemRegistry[item]?.let {
@@ -198,93 +205,152 @@ fun configureShop(bot: Bot) {
     helpMessages.add("#查看商品 <商品序号> - 查看指定商品")
     helpMessages.add("#我的物品 - 查看自己的库存")
     helpMessages.add("#物品详情 - 根据名称查看物品详情")
-    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (shouldRespond) {
-            val content = message.content.trim()
-            @Suppress("NAME_SHADOWING")
-            if (content.startsWith("#商店")) {
-                val page = content.substringAfter("#商店").trimStart().toIntOrNull()
-                    ?.minus(1) ?: 0
+    bot.shouldRespondChannel.subscribeAlways<GroupMessageEvent> {
+        val content = message.content.trim()
+        @Suppress("NAME_SHADOWING")
+        if (content.startsWith("#商店")) {
+            val page = content.substringAfter("#商店").trimStart().toIntOrNull()
+                ?.minus(1) ?: 0
 
-                val list = shop.drop(page * 5).take(5).mapIndexed { index, it ->
-                    "第${index + 1 + page * 5}件 ${it.name} - ${it.description}"
-                }
-
-                group.sendMessage("商店：\n" + list.joinToString("\n") +
-                        "\n第${page + 1}页，共${shop.size / 5 + 1}页")
+            val list = shop.drop(page * 5).take(5).mapIndexed { index, it ->
+                "第${index + 1 + page * 5}件 ${it.name} - ${it.description}"
             }
-            if (content.startsWith("#购买")) {
-                val index = numberRegex.matchAt(content.substringAfter("购买").trimStart(), 0)
-                    ?.value?.toInt()?.minus(1)
-                if (index == null) {
-                    group.sendMessage("无法识别商品")
-                    return@subscribeAlways
-                }
-                val item = shop.getOrNull(index)
-                if (item == null) {
-                    group.sendMessage("无法识别商品")
-                    return@subscribeAlways
-                }
-                if (sender.profile.hasAll(item.buy) &&
-                    // Notice: side effect here
-                    sender.profile.takeMoney(item.price)) {
-                    sender.profile.addItems(item.sell)
-                    group.sendMessage("购买成功")
+
+            group.sendMessage("商店：\n" + list.joinToString("\n") +
+                    "\n第${page + 1}页，共${shop.size / 5 + 1}页")
+        }
+        if (content.startsWith("#购买")) {
+            val index = numberRegex.matchAt(content.substringAfter("购买").trimStart(), 0)
+                ?.value?.toInt()?.minus(1)
+            if (index == null) {
+                group.sendMessage("无法识别商品")
+                return@subscribeAlways
+            }
+            val item = shop.getOrNull(index)
+            if (item == null) {
+                group.sendMessage("无法识别商品")
+                return@subscribeAlways
+            }
+            if (sender.profile.hasAll(item.buy) &&
+                // Notice: side effect here
+                sender.profile.takeMoney(item.price)) {
+                sender.profile.addItems(item.sell)
+                sender.profile.removeItems(item.buy)
+                group.sendMessage("购买成功")
+            }
+            else {
+                group.sendMessage("余额不足或没有足够的物品")
+            }
+        }
+        if (content.startsWith("#查看商品")) {
+            val id = numberRegex.matchAt(content.substringAfter("查看商品").trimStart(), 0)
+                ?.value?.toInt()?.minus(1)
+            val item = shop.getOrNull(id ?: -1)
+            if (item == null) {
+                group.sendMessage("无法识别商品")
+                return@subscribeAlways
+            }
+            group.sendMessage(buildString {
+                append("商品信息：\n")
+                append("名称：${item.name}\n")
+                append("价格：${item.price}金币\n")
+                append("描述：${item.description}\n")
+                if (item.stock == -1) {
+                    append("库存：无限\n")
                 }
                 else {
-                    group.sendMessage("余额不足或没有足够的物品")
+                    append("库存：${item.stock}\n")
+                }
+                if (item.expiresOn >= 0) {
+                    append("过期时间：${SimpleDateFormat().format(Date(item.expiresOn))}\n")
+                }
+                if (item.sender != 0L) {
+                    append("卖家：${item.sender.guz(bot)}\n")
+                }
+                if (item.group != 0L) {
+                    append("限制群：${item.group.guz(bot)} (仅限在此群交易)\n")
+                }
+                append("出售物品：${item.sell.joinToString(", ")}\n")
+                append("收购物品：${item.buy.joinToString(", ")}\n")
+            })
+        }
+        if (content == "#我的物品") {
+            group.sendMessage("你的物品：\n" + sender.profile.items.entries.joinToString("\n") {
+                "${it.value} 个 ${it.key}"
+            })
+        }
+        if (content.startsWith("#物品详情")) {
+            val name = content.substringAfter("物品详情").trim()
+            val item = Items.itemRegistry[name]
+            if (item == null) {
+                group.sendMessage("无法识别物品")
+                return@subscribeAlways
+            }
+            group.sendMessage(buildString {
+                append("物品信息：\n")
+                append("名称：${item.name}\n")
+                append("描述：${item.description}\n")
+                append("稀有度：${item.rarity}\n")
+            })
+        }
+    }
+}
+
+private fun configureManage(bot: Bot) {
+    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+        if (sender.id in config.admins && group.enabled) {
+            if (message.content.startsWith('!')) {
+                val parts = message.content.drop(1).split(' ')
+                when (parts[0]) {
+                    "vip" -> when (parts[1]) {
+                        "apply" -> {
+                            val profile = profile(parts[2].toLong())
+                            val time = parts[3].toLong()
+                            if (profile.vipDateUntil >= date) {
+                                profile.vipDateUntil += time
+                            }
+                            else {
+                                profile.vipDateUntil = date + time
+                            }
+                            if (profile.lastCheckInDate == date) {
+                                profile.sendMessageWithAt(PlainText("您已签到，自动补发vip奖励"), bot)
+                            }
+                            val instant = Instant.ofEpochSecond(0)
+                                .plusSeconds(24 * 3600 * profile.lastCheckInDate)
+                                .minusMillis(TimeZone.getDefault().rawOffset.toLong())
+                                .atZone(ZoneId.systemDefault())
+                            group.sendMessage("VIP资格持续到${instant}")
+                        }
+                    }
+                    "money" -> when (parts[1]) {
+                        "add" -> {
+                            val profile = profile(parts[2].toLong())
+                            val amount = parts[3].toDouble()
+                            profile.increaseMoney(amount)
+                            group.sendMessage("OK")
+                        }
+                    }
                 }
             }
-            if (content.startsWith("#查看商品")) {
-                val id = numberRegex.matchAt(content.substringAfter("查看商品").trimStart(), 0)
-                    ?.value?.toInt()?.minus(1)
-                val item = shop.getOrNull(id ?: -1)
-                if (item == null) {
-                    group.sendMessage("无法识别商品")
+        }
+    }
+}
+
+private fun configureVip(bot: Bot) {
+    helpMessages.add("#vip")
+    bot.eventChannel.subscribeAlways<GroupMessageEvent> {
+        if (group.enabled) {
+            if (message.content == "#vip") {
+                val profile = sender.profile
+                if (profile.vipDateUntil == 0L) {
+                    group.sendMessage("您还没有购买过VIP")
                     return@subscribeAlways
                 }
-                group.sendMessage(buildString {
-                    append("商品信息：\n")
-                    append("名称：${item.name}\n")
-                    append("价格：${item.price}金币\n")
-                    append("描述：${item.description}\n")
-                    if (item.stock == -1) {
-                        append("库存：无限\n")
-                    }
-                    else {
-                        append("库存：${item.stock}\n")
-                    }
-                    if (item.expiresOn >= 0) {
-                        append("过期时间：${SimpleDateFormat().format(Date(item.expiresOn))}\n")
-                    }
-                    if (item.sender != 0L) {
-                        append("卖家：${item.sender.guz(bot)}\n")
-                    }
-                    if (item.group != 0L) {
-                        append("限制群：${item.group.guz(bot)} (仅限在此群交易)\n")
-                    }
-                    append("出售物品：${item.sell.joinToString(", ")}\n")
-                    append("收购物品：${item.buy.joinToString(", ")}\n")
-                })
-            }
-            if (content == "#我的物品") {
-                group.sendMessage("你的物品：\n" + sender.profile.items.entries.joinToString("\n") {
-                    "${it.value} 个 ${it.key}"
-                })
-            }
-            if (content.startsWith("#物品详情")) {
-                val name = content.substringAfter("物品详情").trim()
-                val item = Items.itemRegistry[name]
-                if (item == null) {
-                    group.sendMessage("无法识别物品")
-                    return@subscribeAlways
-                }
-                group.sendMessage(buildString {
-                    append("物品信息：\n")
-                    append("名称：${item.name}\n")
-                    append("描述：${item.description}\n")
-                    append("稀有度：${item.rarity}\n")
-                })
+                val instant = Instant.ofEpochSecond(0)
+                    .plusSeconds(24 * 3600 * profile.vipDateUntil)
+                    .minusMillis(TimeZone.getDefault().rawOffset.toLong())
+                    .atZone(ZoneId.systemDefault())
+                group.sendMessage("VIP资格持续到${instant}")
             }
         }
     }
@@ -294,4 +360,6 @@ fun configureMoney(bot: Bot) {
     configureTransfer(bot)
     configureCheckIn(bot)
     configureBasic(bot)
+    configureManage(bot)
+    configureVip(bot)
 }
