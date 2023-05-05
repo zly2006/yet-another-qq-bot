@@ -19,6 +19,7 @@ import kotlin.random.Random
 val chars = ('a'..'z') + ('A'..'Z') + ('0'..'9')
 
 var lastKey: String? = null
+var lastWinner: Long? = null
 
 suspend fun newChallenge(g: Group): ByteArray {
     val image = BufferedImage(300, 40, BufferedImage.TYPE_INT_ARGB).apply {
@@ -29,7 +30,7 @@ suspend fun newChallenge(g: Group): ByteArray {
         g2d.color = Color.BLACK
         g2d.drawString("以最快的速度输入以下内容领取奖励：", 10, 15)
         if ((0..1).random() == 1) {
-            lastKey = chars.shuffled().take(24).joinToString("")
+            lastKey = chars.shuffled().take(12).joinToString("")
             // draw chars with random rotation
             lastKey!!.forEachIndexed { index, c ->
                 val x = index * 12 + 10
@@ -77,7 +78,12 @@ fun configureTypeTextChallenge(bot: Bot) {
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (message.content == lastKey) {
             lastKey = null
-            val reward = (3..10).random()
+            val reward = (3..10).random() +
+                    if (lastWinner == sender.id) {
+                        group.sendMessage("连续答对，额外赠送5金币！")
+                        5
+                    } else 0
+            lastWinner = sender.id
             group.sendMessage("恭喜${sender.nick}获得胜利, 获得 $reward 金币！")
             sender.profile.increaseMoney(reward.toDouble())
         }

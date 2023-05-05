@@ -17,6 +17,7 @@ repositories {
 
 dependencies {
     api("net.mamoe", "mirai-core-api", miraiVersion)
+    implementation("org.jsoup:jsoup:1.15.4")
     runtimeOnly("net.mamoe", "mirai-core", miraiVersion)
     //implementation("io.github.jetkai:openai:1.1.2")
     implementation("com.sksamuel.scrimage:scrimage-core:4.0.34")

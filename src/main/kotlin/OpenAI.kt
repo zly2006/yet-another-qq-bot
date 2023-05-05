@@ -6,6 +6,10 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.contact.Group
 import net.mamoe.mirai.contact.Member
@@ -18,6 +22,23 @@ import java.util.*
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toJavaDuration
 
+@Serializable
+private class RawResponse(
+    val usage: Usage
+) {
+    @Serializable
+    class Usage(
+        @SerialName("prompt_tokens")
+        val promptTokens: Int,
+        @SerialName("completion_tokens")
+        val completionTokens: Int,
+        @SerialName("total_tokens")
+        val totalTokens: Int
+    )
+}
+
+private val json = Json { ignoreUnknownKeys = true }
+
 data class Context(
     val id: Long,
     val uuid: UUID = UUID.randomUUID(),
@@ -27,9 +48,14 @@ data class Context(
     var lockedTimestamp: Long = System.currentTimeMillis(),
 ) {
     suspend fun onMessage(instance: ChatGPT, content: String, euid: String, group: Group, sender: Member) {
+        if (!instance.permissionCheck(sender.profile)) {
+            group.sendMessage("你无权使用此AI！")
+            return
+        }
         if (lockedTimestamp + 1000 * 300 > System.currentTimeMillis()) {
             if (group.id !in config.testGroup) {
                 group.sendMessage("休息一下再来提问吧！")
+                return
             }
         }
         lastRequest = System.currentTimeMillis()
@@ -37,15 +63,6 @@ data class Context(
             group.sendMessage("请等待AI回复")
             return
         }
-        if (messages.size > 8) {
-            group.sendMessage("聊天消息太长了，会话已清空。请休息 5 分钟再来提问吧！")
-            if (sender.id !in config.admins) {
-                lockedTimestamp = System.currentTimeMillis()
-            }
-            messages.clear()
-            return
-        }
-
         if (content == "清空") {
             instance.resetContext(sender.id)
             group.sendMessage("已清空")
@@ -67,8 +84,14 @@ data class Context(
                     .build()
                     .sendRequest()
                 val data = openAI.chatCompletion.asChatResponseData()
+                val res = json.decodeFromString<RawResponse>(openAI.chatCompletion.rawJsonResponse)
                 messages += data
-                instance.buildMessage(group, this@Context)
+                val msg = instance.buildMessage(group, this@Context)
+                if (res.usage.totalTokens > 4000) {
+                    group.sendMessage("会话长度超过OpenAI上限，已清空。")
+                    instance.resetContext(id)
+                }
+                msg
             } catch (e: Exception) {
                 group.bot.logger.error(e)
                 fun getAllReason(e: Throwable): String {
@@ -99,6 +122,7 @@ class ChatGPT(
     val bot: Bot,
     private val initPrompt: String? = null,
     private val blameInappropriateSpeech: Boolean = false,
+    val permissionCheck: (UserProfile) -> Boolean = { true }
 ) {
     private val map = mutableMapOf<Long, Context>()
 

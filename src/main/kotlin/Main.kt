@@ -9,7 +9,9 @@ import kotlinx.serialization.json.Json
 import net.mamoe.mirai.Bot
 import net.mamoe.mirai.BotFactory
 import net.mamoe.mirai.auth.BotAuthorization
+import net.mamoe.mirai.contact.MemberPermission
 import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.message.data.at
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.BotConfiguration
 import net.mamoe.mirai.utils.DirectoryLogger
@@ -21,6 +23,7 @@ import java.awt.TextField
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.script.ScriptEngineManager
+import kotlin.math.roundToInt
 import kotlin.system.exitProcess
 
 val JSON = Json {
@@ -59,6 +62,8 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureMarry,
     ::configureTypeTextChallenge,
     ::configureSteal,
+    ::configureTodayInHistory,
+    ::configureFace,
 )
 
 val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
@@ -172,6 +177,7 @@ val bots = mutableListOf<Bot>()
 
 @OptIn(DelicateCoroutinesApi::class)
 suspend fun main() {
+    profiles.values.forEach { it.money = it.money.times(100).roundToInt().div(100.0) } // 保留两位小数
     config = loadJson("config.json") { Config() }
     config.accounts.forEach {
         val bot = newBot(it.account, it.password, it.log2Console)
@@ -181,10 +187,17 @@ suspend fun main() {
             configureFuns.forEach { it(bot) }
             config.allowSpam.mapNotNull { bot.getGroup(it) }.forEach { it.sendMessage("Bot Started!") }
             bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-                if (shouldRespond) {
+                if (group.enabled) {
                     if (message.content.startsWith("#")) {
                         sender.profile.lastAppearedTime = System.currentTimeMillis()
                         sender.profile.lastAppearedGroup = group.id
+                        if (sender.profile.banned()) {
+                            if (group.botPermission >= MemberPermission.ADMINISTRATOR) {
+                                sender.mute(120)
+                                group.sendMessage(sender.at() + "请好好服刑！")
+                                return@subscribeAlways
+                            }
+                        }
                     }
                     if (message.content == "#help") {
                         group.sendMessage(helpMessages.joinToString("\n"))
@@ -192,8 +205,11 @@ suspend fun main() {
                 }
             }
 
-            val ai = ChatOnce(File("data/prompt.txt").readText())
-            ai.configureAi(bot)
+            val ai = ChatGPT(bot) {
+                it.items.getOrDefault("GPT-3.5", 0) > 0
+            }
+            ai.configureChatGPT(bot)
+            ai.configureManageAi(bot)
         } catch (e: Exception) {
             bot.logger.error(e)
         }
@@ -212,7 +228,6 @@ suspend fun main() {
     val frame = Frame("YAB4J").apply {
         iconImage = BufferedImage(256, 256, BufferedImage.TYPE_INT_ARGB)
         isVisible = true
-        isResizable = false
         layout = null
         setSize(200, 150)
         add(Button("Stop").apply {

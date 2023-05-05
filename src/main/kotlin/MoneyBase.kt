@@ -51,7 +51,7 @@ private fun configureCheckIn(bot: Bot) {
                     profile.lastCheckInDate = date
                     val randomMax = 100 + max(profile.keepCheckInDuration * 5, 10).toInt()
                     val money = (100..randomMax).random().plus(
-                        if (profile.vipDateUntil < date) 90 // vip
+                        if (profile.vipDateUntil > date) 90 // vip
                         else 0
                     )
                     profile.increaseMoney(money.toDouble())
@@ -76,7 +76,7 @@ fun resolveTarget(message: MessageChain, bot: Bot) = message.filterIsInstance<At
         ?.value?.toLong()
 
 fun resolveAmount(message: MessageChain) = moneyRegex.findAll(message.filterIsInstance<PlainText>()
-    .joinToString { it.content }.substringBefore("金币")).last().value.toDouble()
+    .joinToString { it.content }.substringBefore("金币")).first().value.toDouble()
 
 private fun configureTransfer(bot: Bot) {
     helpMessages.add("#转账 @某人 <金币> - 转账给指定用户")
@@ -164,20 +164,25 @@ private fun configureTransfer(bot: Bot) {
 
 private fun configureBasic(bot: Bot) {
     helpMessages.add("#我的余额 - 查看自己的余额")
-    helpMessages.add("#财富榜 - 查看财富榜")
+    helpMessages.add("#财富榜 - 或者\"#财负榜\"看倒数前十")
+    val regex = Regex("^#财([富负])榜$")
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
         if (shouldRespond) {
             val content = message.content.trim()
             if (content == "#我的余额") {
                 group.sendMessage("你的余额为 ${sender.profile.money} 金币")
             }
-            if (content == "#财富榜") {
+            val match = regex.find(content)
+            if (match != null) {
                 val sorted = profiles.values.sortedByDescending { it.money }
-                val top = sorted.take(10)
+                val top = sorted.let {
+                    if (match.groups[1]!!.value == "负") it.reversed()
+                    else it
+                }.take(10)
                 val rank = sorted.indexOf(sender.profile) + 1
                 group.sendMessage("你的排名为 $rank")
                 @Suppress("NAME_SHADOWING")
-                group.sendMessage("财富榜：\n" + top.mapIndexed { index, it ->
+                group.sendMessage("$content:\n" + top.mapIndexed { index, it ->
                     "第${index + 1}名 ${it.guz(bot)} ${it.money}金币"
                 }.joinToString("\n"))
             }

@@ -26,7 +26,7 @@ fun configureSteal(bot: Bot) {
                 return@subscribeAlways
             }
             val target = resolveTarget(message, bot)?.let { profile(it) } ?: run {
-                group.sendMessage("无法找到小偷")
+                group.sendMessage("无法找到目标")
                 return@subscribeAlways
             }
             val amount = min(normalRandom(75.0, 40.0), target.money)
@@ -34,15 +34,16 @@ fun configureSteal(bot: Bot) {
                 group.sendMessage("他已经身无分文了，你真的忍心抢吗？")
                 return@subscribeAlways
             }
-            target.money -= amount
-            profile.increaseMoney(amount)
+            val finalAmount = amount.times(100).roundToInt() / 100.0
+            target.money -= finalAmount
+            profile.increaseMoney(finalAmount)
             profile.stealMoneyRecords.add(UserProfile.StealMoneyRecord(
                 System.currentTimeMillis(),
                 target.id,
-                amount
+                finalAmount
             ))
-            target.sendMessageWithAt(PlainText("你被 ${sender.guz} 偷走了 $amount 个金币！"), bot)
-            group.sendMessage(sender.at() + "你偷走了 $amount 个金币！")
+            target.sendMessageWithAt(PlainText("你被 ${sender.guz} 偷走了 $finalAmount 个金币！"), bot)
+            group.sendMessage(sender.at() + "你偷走了 $finalAmount 个金币！")
         }
         if (message.content.startsWith("#举报小偷")) {
             val target = resolveTarget(message, bot)?.let { profile(it) } ?: run {
@@ -57,9 +58,10 @@ fun configureSteal(bot: Bot) {
             }
             record.caught = true
             sender.profile.increaseMoney(record.amount * 1.15)
-            group.sendMessage(sender.at() + "你已追回 $record.amount 金币，额外奖励15%")
+            group.sendMessage(sender.at() + "你已追回 ${record.amount} 金币，额外奖励15%")
             target.money -= (record.amount * 1.2)
-            target.sendMessageWithAt(PlainText("你从 ${sender.guz} 偷取的 ${record.amount} 金币已被追回，额外罚款20%"), bot)
+            target.sendMessageWithAt(PlainText("你从 ${sender.guz} 偷取的 ${record.amount} 金币已被追回，有期徒刑2小时，另处罚款20%"), bot)
+            target.banUntil = System.currentTimeMillis() + 7200_000
         }
     }
 }
