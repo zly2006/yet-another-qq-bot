@@ -64,6 +64,7 @@ private val configureFuns = mutableListOf<(Bot) -> Unit>(
     ::configureSteal,
     ::configureTodayInHistory,
     ::configureFace,
+    ::configureUnban,
 )
 
 val saveActions = mutableListOf<() -> Unit>( { saveJson("profiles.json", profiles) } )
