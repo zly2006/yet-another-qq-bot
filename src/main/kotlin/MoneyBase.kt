@@ -321,6 +321,7 @@ private fun configureManage(bot: Bot) {
                             }
                             if (profile.lastCheckInDate == date) {
                                 profile.sendMessageWithAt(PlainText("您已签到，自动补发vip奖励"), bot)
+                                profile.increaseMoney(90.0)
                             }
                             val instant = Instant.ofEpochSecond(0)
                                 .plusSeconds(24 * 3600 * profile.lastCheckInDate)
