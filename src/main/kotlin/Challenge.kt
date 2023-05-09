@@ -89,8 +89,7 @@ fun configureTypeTextChallenge(bot: Bot) {
                 sender.profile.increaseMoney(reward.toDouble())
             } else if (message.content.length == (lastKey?.length ?: -1)) {
                 val similarCharacters: MutableList<String> = mutableListOf(
-                    "Cc", "Ff", "Il1", "Kk",
-                    "Mm", "Oo0", "Pp", "Ss", "Uu", "Vv", "Ww", "Xx", "Zz"
+                    "Cc", "Il1", "Oo0", "Pp", "Ss", "Uu", "Vv", "Ww", "Xx", "Zz"
                 )
                 var differenceCount = 0
 
