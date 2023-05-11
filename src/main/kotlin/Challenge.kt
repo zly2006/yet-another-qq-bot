@@ -76,16 +76,43 @@ suspend fun newChallenge(g: Group): ByteArray {
 @OptIn(DelicateCoroutinesApi::class)
 fun configureTypeTextChallenge(bot: Bot) {
     bot.eventChannel.subscribeAlways<GroupMessageEvent> {
-        if (message.content == lastKey) {
-            lastKey = null
-            val reward = (3..10).random() +
-                    if (lastWinner == sender.id) {
-                        group.sendMessage("连续答对，额外赠送5金币！")
-                        5
-                    } else 0
-            lastWinner = sender.id
-            group.sendMessage("恭喜${sender.nick}获得胜利, 获得 $reward 金币！")
-            sender.profile.increaseMoney(reward.toDouble())
+        if (lastKey != null) {
+            if (message.content == lastKey) {
+                lastKey = null
+                val reward = (3..10).random() +
+                        if (lastWinner == sender.id) {
+                            group.sendMessage("连续答对，额外赠送5金币！")
+                            5
+                        } else 0
+                lastWinner = sender.id
+                group.sendMessage("恭喜${sender.nick}获得胜利, 获得 $reward 金币！")
+                sender.profile.increaseMoney(reward.toDouble())
+            } else if (message.content.length == (lastKey?.length ?: -1)) {
+                val similarCharacters: MutableList<String> = mutableListOf(
+                    "Cc", "Il1", "Oo0", "Pp", "Ss", "Uu", "Vv", "Ww", "Xx", "Zz"
+                )
+                var differenceCount = 0
+
+                for (i in 0 until message.content.length) {
+                    val userInput = message.content[i]
+                    val answer = lastKey.toString()[i]
+
+                    if (userInput != answer &&
+                        similarCharacters.any { it.contains(userInput) && it.contains(answer) }) {
+                        differenceCount += 1
+                    }
+                }
+
+                if (differenceCount <= 1) {
+                    val reward = (1..8).random()
+                    lastWinner = sender.id
+                    group.sendMessage(
+                        "${sender.nick}的答案与正确答案相近(相差1个相似字符), " +
+                                "获得 $reward 金币！"
+                    )
+                    lastKey = null
+                }
+            }
         }
         if (sender.id in config.admins && message.content == "!test new challenge") {
             newChallenge(group)
