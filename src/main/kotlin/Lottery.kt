@@ -8,6 +8,7 @@ import net.mamoe.mirai.message.data.content
 import user.UserProfile
 import user.takeMoney
 import java.util.*
+import kotlin.math.abs
 import kotlin.random.Random
 
 private fun GroupMessageEvent.doLottery(): Message {
@@ -78,6 +79,7 @@ fun configureLottery(bot: Bot) {
                     })
                 }
                 "#百连" -> {
+                    val moneyBefore = sender.profile.money
                     if (!sender.profile.takeMoney(1000.0)) {
                         group.sendMessage("金币不足")
                         return@subscribeAlways
@@ -86,6 +88,9 @@ fun configureLottery(bot: Bot) {
                         repeat(100) {
                             bot says doLottery()
                         }
+                        bot says PlainText("您总共"+
+                                (if (sender.profile.money>moneyBefore) "赚" else "亏")+
+                        "了"+(abs(moneyBefore-sender.profile.money).toString())+"金币")
                     })
                 }
                 "#抽签" -> {
