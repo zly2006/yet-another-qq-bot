@@ -26,13 +26,12 @@ private suspend fun doMarry(event: GroupMessageEvent) {
 
     if (data == null || !data.valid()) {
         // 随机抽取一个幸运用户
-        val aimless = event.group.members.stream()
+        val aimless = event.group.members
             .filter { it.id != event.sender.id }
             .filter {
                 val marryData = it.profile.marry[it.group.id]
                 return@filter marryData == null || !marryData.valid()
             }
-            .toList()
         if (aimless.isEmpty()) {
             event.group.sendMessage(buildMessageChain {
                 +At(event.sender)

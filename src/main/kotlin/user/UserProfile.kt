@@ -18,7 +18,6 @@ class UserProfile(
     var money: Double = 0.0,
     val items: MutableMap<String, Int> = mutableMapOf(),
     val punishments: MutableList<Punishment> = mutableListOf(),
-    @Transient
     var marry: MutableMap<Long, MarryData> = mutableMapOf(),
     val records: MutableList<Record> = mutableListOf(),
     var banUntil: Long = 0,
@@ -97,6 +96,7 @@ class UserProfile(
         val cancelSource: String = "",
     )
 
+    @Serializable
     class MarryData(
         // 登记时间
         val time: Long,
@@ -108,7 +108,7 @@ class UserProfile(
         val targetAvatarUrl: String,
         // 是否是申请人（娶和被取）
         val applicant: Boolean
-    ){
+    ) {
         fun valid(): Boolean{
             val instance = Calendar.getInstance()
             instance.set(Calendar.HOUR, 0)
