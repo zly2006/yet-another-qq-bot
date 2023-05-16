@@ -64,7 +64,7 @@ private suspend fun doMarry(event: GroupMessageEvent) {
                     +At(event.sender.id)
                     +PlainText(" 今天你的群老婆是")
                     +image
-                    +PlainText("${data.targetName}(${data.target})哒")
+                    +PlainText("【${data.targetName}】(${data.target}) 哒哒哒！")
                 })
             }
         }
@@ -78,7 +78,7 @@ private suspend fun doMarry(event: GroupMessageEvent) {
                     +At(event.sender.id)
                     +PlainText(" 今天你被了, 群老公是")
                     +image
-                    +PlainText("${data.targetName}(${data.target})哒")
+                    +PlainText("【${data.targetName}】(${data.target}) 哒哒哒！")
                 })
             }
         }
