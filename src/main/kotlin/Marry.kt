@@ -26,12 +26,13 @@ private suspend fun doMarry(event: GroupMessageEvent) {
 
     if (data == null || !data.valid()) {
         // 随机抽取一个幸运用户
-        val aimless = event.group.members
-            .filter { it.id != event.sender.id }
-            .filter {
+        val aimless = event.group.members.stream().filter { it.id != event.sender.id }.filter {
                 val marryData = it.profile.marry[it.group.id]
                 return@filter marryData == null || !marryData.valid()
-            }
+        }.sorted { o1, o2 ->
+            o2.lastSpeakTimestamp.compareTo(o1.lastSpeakTimestamp)
+        }.limit(10).toList()
+
         if (aimless.isEmpty()) {
             event.group.sendMessage(buildMessageChain {
                 +At(event.sender)
@@ -63,7 +64,7 @@ private suspend fun doMarry(event: GroupMessageEvent) {
                     +At(event.sender.id)
                     +PlainText(" 今天你的群老婆是")
                     +image
-                    +PlainText("${data.targetName}(${data.target})哒")
+                    +PlainText("【${data.targetName}】(${data.target}) 哒哒哒！")
                 })
             }
         }
@@ -77,7 +78,7 @@ private suspend fun doMarry(event: GroupMessageEvent) {
                     +At(event.sender.id)
                     +PlainText(" 今天你被了, 群老公是")
                     +image
-                    +PlainText("${data.targetName}(${data.target})哒")
+                    +PlainText("【${data.targetName}】(${data.target}) 哒哒哒！")
                 })
             }
         }
