@@ -68,6 +68,7 @@ fun configureBet(bot: Bot) {
                 }
                 val amount = bets[target]!!
                 if (sender.profile.takeMoney(amount)) {
+                    bets.remove(target)
                     if (trueFalseList.random()) {
                         sender.profile.increaseMoney(amount * 2)
                         group.sendMessage(sender.at() + "你赢了 $amount 金币")
@@ -77,7 +78,6 @@ fun configureBet(bot: Bot) {
                         group.sendMessage(sender.at() + "你输了 $amount 金币")
                         profile(target).sendMessageWithAt(PlainText("你在对赌赢了 $amount 金币，对赌者是 ${sender.guz}"), bot)
                     }
-                    bets.remove(target)
                 } else {
                     group.sendMessage("你没有足够的金币")
                 }
