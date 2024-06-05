@@ -85,6 +85,7 @@ fun newBot(account: Long, password: String, log2Console: Boolean = true): Bot {
         authorization = BotAuthorization.byQRCode()
     ) {
         cacheDir = File("cache/$account")
+        cacheDir.mkdirs()
         protocol = BotConfiguration.MiraiProtocol.ANDROID_WATCH
         fileBasedDeviceInfo("cache/$account/device.json")
         botLoggerSupplier = {
